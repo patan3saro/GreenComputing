@@ -55,7 +55,7 @@ def calculate_shapley_values(beacons, tasks, include_NO=True):
             - is_convex: Boolean indicating if the game is convex
     """
     # Estrai gli ID dei beacon
-    player_ids = [str(beacon[1]) for beacon in beacons]
+    player_ids = [int(beacon[1]) for beacon in beacons]
 
     # Aggiungi il giocatore "NO" se richiesto special ID 250596
     if include_NO:
@@ -101,7 +101,8 @@ def calculate_shapley_values(beacons, tasks, include_NO=True):
 
     # Verifica se il gioco è convesso
     is_convex = is_convex_game(coalition_values, player_ids)
-    print(f"Il gioco è {'convesso' if is_convex else 'non convesso'}")
+    print(f"[LOG] Verifica convessità: Il gioco è {'convesso' if is_convex else 'non convesso'}")
+
 
     # Calcola i valori di Shapley
     n = len(player_ids)
@@ -131,6 +132,9 @@ def calculate_shapley_values(beacons, tasks, include_NO=True):
         #compute new sharing value
         #for player in shapley_values:
         #    shapley_values[player] = phi + incentive + performance
+        #for pid, value in shapley_values.items():
+        #   print(f"[LOG] Shapley ID={pid}: {value:.4f}")
+
         #this code must implement the performance so it must consider the margin of error between shapley of the realised and shapley expected
 
     return shapley_values, coalition_values, is_convex

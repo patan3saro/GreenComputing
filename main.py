@@ -16,6 +16,8 @@ from controller import Controller
 from value_function import *
 import game
 from mobility_manager import extract_city_traffic
+from network_manager import *
+
 
 def is_node_busy(node_id, busy_nodes_id):
     return any(node['busy_id'] == node_id for node in busy_nodes_id)
@@ -49,6 +51,7 @@ def generate_exponential_tasks(rate, task_input_size, task_output_size, task_wor
     # Applichiamo una normale centrata sul valore scelto
     # con deviazione standard di 0.1
     deadlines = [random.normalvariate(v, 0.1) for v in scelte]
+    deadlines_seconds = np.array(deadlines)/ 1000
 
     tasks = [{
         "id": i,
@@ -57,7 +60,7 @@ def generate_exponential_tasks(rate, task_input_size, task_output_size, task_wor
         "O": task_output_size,  # bit
         "W": task_workload,  # 500 Mcycles
         "D": deadline  # in secondi
-    } for i, (arrival_time, deadline) in enumerate(zip(arrival_times_sec, deadlines))]
+    } for i, (arrival_time, deadline) in enumerate(zip(arrival_times_sec, deadlines_seconds))]
 
     print(
         f"Generati {len(tasks)} task per {num_users} utenti a tasso {rate}/sec nella finestra [{start_time_sec}-{end_time_sec}]sec")
@@ -80,7 +83,7 @@ def main( task_input_size=TASK_INPUT_SIZE,
     task_output_size=TASK_OUTPUT_SIZE,
     task_workload=TASK_WORKLOAD,
     city=CITY, city_bbox=CITY_BBOX, seed_random=SEED_RANDOM, no_id=NO_ID, verbose=VERBOSE,
-    dr_5g=DR_5G, inet=DR_INET, inet_delay=INET_DELAY,
+    dr_5g=DR_5G, inet_dr=DR_INET, inet_delay=INET_DELAY,
     gnb_tx_power_5g=GNB_TX_POWER_5G, gnb_tx_power_inet=GNB_TX_POWER_INET, ue_tx_power=UE_TX_POWER,
     coverage_radius=COVERAGE_RADIUS, pedestrian_ue_distance=PEDESTRIAN_UE_DISTANCE,
     cloud_distance=CLOUD_DISTANCE, cloud_cpu_capacity=CLOUD_CPU_CAPACITY,
@@ -107,6 +110,7 @@ def main( task_input_size=TASK_INPUT_SIZE,
     vehicles = create_vehicles(num_vehicles, city, city_bbox, max_simulation_time_ms,
                                vehicle_cpu_capacity, vehicle_cpu_power,
                                ue_tx_power, energy_available, price_kwh, queue_capacity_vehicle)
+
     clouds = create_cloud_nodes(num_clouds, cloud_id, cloud_cpu_capacity, cloud_queue_capacity,
                                 gnb_tx_power_inet, energy_available, price_kwh)
 
@@ -120,10 +124,12 @@ def main( task_input_size=TASK_INPUT_SIZE,
 
     beacon_df = pd.DataFrame(columns=[
         'timestamp', 'node_id', 'beacon_cpu_capacity', 'queue_capacity', 'beacon_cpu_power', 'beacon_ue_power',
-        'beacon_energy', 'beacon_dollars_per_kwh', 'pos_x', 'pos_y', 'speed', 'distance_gNB', 'dwell'])
-    beacon_df_real = pd.DataFrame(columns=[
-        'timestamp', 'node_id', 'beacon_cpu_capacity', 'queue_capacity', 'beacon_cpu_power', 'beacon_ue_power',
-        'beacon_energy', 'beacon_dollars_per_kwh', 'pos_x', 'pos_y', 'speed', 'distance_gNB', 'dwell'])
+        'beacon_energy', 'beacon_dollars_per_kwh', 'pos_x', 'pos_y', 'speed', 'distance_gNB', 'dwell',
+        'useful_throughput_ul', 'useful_throughput_dl'
+    ])
+
+    beacon_df_real = beacon_df.copy()
+
 
     tasks_df = pd.DataFrame(columns=["id", "arrival_time", "I", "O", "W", "D"])
     busy_nodes_id = []
@@ -134,33 +140,91 @@ def main( task_input_size=TASK_INPUT_SIZE,
     while current_time_ms <= max_simulation_time_ms:
         current_time_sec = current_time_ms / 1000
 
-        for v in vehicles:
-            if current_time_ms - last_v_beacon[v.id] >= vehicle_beacon_interval_ms and not is_node_busy(v.id, busy_nodes_id):
-                beacon = v.create_communication_beacon(current_time_sec)
+        datarates = calcola_data_rate_5g_standard(vehicles, current_time_sec, potenza_dl_dbm=gnb_tx_power_5g)
+        valid_ids = {d['id'] for d in datarates}
 
+        for v in vehicles:
+            # escludi subito i veicoli il cui id non è in datarates
+            if v.id not in valid_ids:
+                continue
+
+            if current_time_ms - last_v_beacon[v.id] >= vehicle_beacon_interval_ms and not is_node_busy(v.id,
+                                                                                                        busy_nodes_id):
+                beacon = v.create_communication_beacon(current_time_sec)
                 beacon_real = v.create_real_beacon(beacon)
 
-                dwell, dist = compute.calculate_dwell_time_and_distance(beacon[6]['speed'], beacon[6]['position_x'], beacon[6]['position_y'])
-                dwell_r, dist_r = compute.calculate_dwell_time_and_distance(beacon_real[6]['speed'], beacon_real[6]['position_x'], beacon_real[6]['position_y'])
+                dwell, dist = compute.calculate_dwell_time_and_distance(
+                    beacon[6]['speed'], beacon[6]['position_x'], beacon[6]['position_y']
+                )
 
-                if beacon[0] and dist < coverage_radius:
-                    controller.receive_vehicle_beacon(beacon, current_time_sec, dwell)
-                    controller.receive_vehicle_real_beacon(beacon_real, current_time_sec, dwell_r)
+                dwell_r, dist_r = compute.calculate_dwell_time_and_distance(
+                    beacon_real[6]['speed'], beacon_real[6]['position_x'], beacon_real[6]['position_y']
+                )
+
+                if int(beacon[0])>=0:
+                    datarate_by_id = [d for d in datarates if int(d.get('id')) == int(beacon[0])]
+                    datarate_by_id= datarate_by_id[0]
+
+                    #  Estendi i beacon con i datarate prima di passarli al controller
+
+                    beacon_with_rates = extend_beacon_with_datarate(beacon, datarate_by_id)
+                    beacon_real_with_rates = extend_beacon_with_datarate(beacon_real, datarate_by_id)
+
+                    controller.receive_vehicle_beacon(beacon_with_rates, current_time_sec, dwell )
+                    controller.receive_vehicle_real_beacon(beacon_real_with_rates, current_time_sec, dwell_r)
+
                     last_v_beacon[v.id] = last_v_real[v.id] = current_time_ms
-                    print()
-                    beacon_df.loc[len(beacon_df)] = [current_time_sec] + list(beacon[:-2]) + [beacon[6]['position_x'], beacon[6]['position_y'], beacon[6]['speed'], dist, dwell, queue_capacity_vehicle]
-                    beacon_df_real.loc[len(beacon_df_real)] = [current_time_sec] + list(beacon_real[:-2]) + [beacon_real[6]['position_x'], beacon_real[6]['position_y'], beacon_real[6]['speed'], dist_r, dwell_r, queue_capacity_vehicle]
+
+                    beacon_df.loc[len(beacon_df)] = [
+                        current_time_sec,
+                        beacon_with_rates[0],  # node_id
+                        beacon_with_rates[1],  # beacon_cpu_capacity
+                        beacon_with_rates[6],  # queue_capacity
+                        beacon_with_rates[2],  # beacon_cpu_power
+                        beacon_with_rates[3],  # beacon_ue_power
+                        beacon_with_rates[4],  # energy
+                        beacon_with_rates[5],  # dollars_per_kwh
+                        beacon[6]['position_x'],
+                        beacon[6]['position_y'],
+                        beacon[6]['speed'],
+                        dist,
+                        dwell,
+                        beacon_with_rates[-2],  # useful_throughput_ul
+                        beacon_with_rates[-1]  # useful_throughput_dl
+                    ]
+
+                    beacon_df_real.loc[len(beacon_df_real)] = [
+                        current_time_sec,
+                        beacon_real_with_rates[0],  # node_id
+                        beacon_real_with_rates[1],  # beacon_cpu_capacity
+                        beacon_real_with_rates[6],  # queue_capacity
+                        beacon_real_with_rates[2],  # beacon_cpu_power
+                        beacon_real_with_rates[3],  # beacon_ue_power
+                        beacon_real_with_rates[4],  # energy
+                        beacon_real_with_rates[5],  # dollars_per_kwh
+                        beacon_real[6]['position_x'],
+                        beacon_real[6]['position_y'],
+                        beacon_real[6]['speed'],
+                        dist_r,
+                        dwell_r,
+                        beacon_real_with_rates[-2],  # useful_throughput_ul
+                        beacon_real_with_rates[-1]  # useful_throughput_dl
+                    ]
 
         for c in clouds:
             if current_time_ms - last_c_beacon[c.id] >= cloud_beacon_interval_ms:
-                beacon = c.create_communication_beacon()
-                beacon_real = c.create_real_beacon()
+                beacon = extend_cloud_beacon(c.create_communication_beacon(), inet_dr)
+                beacon_real = extend_cloud_beacon(c.create_real_beacon(), inet_dr)
 
                 beacon_df.loc[len(beacon_df)] = [current_time_sec] + list(beacon[:-1]) + [0, 0, 0, cloud_distance, 0, cloud_queue_capacity]
                 beacon_df_real.loc[len(beacon_df_real)] = [current_time_sec] + list(beacon_real[:-1]) + [0, 0, 0, cloud_distance, 0, cloud_queue_capacity]
 
                 controller.receive_cloud_beacon(beacon, current_time_ms)
+                print(f"[LOG] Beacon inviato - ID: {v.id}, Time: {current_time_sec:.2f}s, Dwell: {dwell:.1f}ms")
+
                 controller.receive_cloud_real_beacon(beacon_real, current_time_ms)
+                print(f"[LOG] Cloud beacon inviato - ID: {c.id}, Time: {current_time_sec:.2f}s")
+
                 last_c_beacon[c.id] = current_time_ms
 
         controller.clean_expired_beacons(current_time_ms)
@@ -170,8 +234,10 @@ def main( task_input_size=TASK_INPUT_SIZE,
             count_all_tasks += len(filtered)
             if filtered:
                 new_tasks_df = pd.DataFrame(filtered)
+
                 if not new_tasks_df.empty:
                     tasks_df = pd.concat([tasks_df, new_tasks_df], ignore_index=True)
+
                 beacons = controller.beacons
 
                 if beacons:

@@ -33,12 +33,14 @@ def _calculate_utility_nodes(beacon, task, algorithm_overhead, task_rate):
     energy_NO = energy_tot - (energies[1] + energies[4])
     energy_NO_cost = convert.dollars_per_kwh_to_dollars_per_joule(NO_ENERGY_PRICE) * energy_NO
     deadline_met = offloading_time <= task["D"]
+
     if not deadline_met:
         utility = 0
     else:
         energy_consumed = energies[1] + energies[4]
         task_payment = convert.to_task_payment(task["D"], task_rate)
         utility = task_payment - energy_price_joule * energy_consumed
+
     detailed_info = {
         'offloading_time': offloading_time,
         'deadline': task["D"],
