@@ -1,6 +1,7 @@
 import numpy as np
 
 
+
 def dbm_to_mw(dbm):
     """Converte da dBm a milliwatt."""
     return 10 ** (dbm / 10)

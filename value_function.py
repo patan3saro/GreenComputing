@@ -1,7 +1,7 @@
 import pulp
 import utils_for_covertions as convert
 import utils_computing as compute
-from config import *
+from config import NO_ENERGY_PRICE, CLOUD_QUEUE_CAPACITY, VERBOSE
 
 def verbose_print(*args, **kwargs):
     if VERBOSE:

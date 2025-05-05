@@ -1,8 +1,9 @@
-from config import *
 import random
+import seeds
+random.seed(seeds.seed_random)
 
-random.seed(SEED_RANDOM)
 
+import seeds
 
 class Vehicle:
     def __init__(self, id=None, cpu_capacity=None, queue_capacity=None,  cpu_power=None, ue_power=None, energy_available=None,

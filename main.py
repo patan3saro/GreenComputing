@@ -1,9 +1,8 @@
 import datetime
 import os
+import random, numpy as np
 import math
-import random
 
-import numpy as np
 import pandas as pd
 
 import utils_computing as compute
@@ -17,6 +16,11 @@ from value_function import *
 import game
 from mobility_manager import extract_city_traffic
 from network_manager import *
+
+import seeds
+import random
+import numpy as np
+
 
 
 def is_node_busy(node_id, busy_nodes_id):
@@ -100,7 +104,10 @@ def main( task_input_size=TASK_INPUT_SIZE,
     num_vehicles=NUM_VEHICLES, users_number=USERS_NUMBER, num_clouds=NUM_CLOUDS,
     cloud_id=CLOUD_ID, network_operators=NETWORK_OPERATORS):
 
-    np.random.seed(seed_random)
+    seeds.seed_random = seed_random
+
+    random.seed(seeds.seed_random)
+    np.random.seed(seeds.seed_random)
 
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     results_folder = f'results/{timestamp}'
@@ -154,11 +161,11 @@ def main( task_input_size=TASK_INPUT_SIZE,
                 beacon_real = v.create_real_beacon(beacon)
 
                 dwell, dist = compute.calculate_dwell_time_and_distance(
-                    beacon[6]['speed'], beacon[6]['position_x'], beacon[6]['position_y']
+                    beacon[6]['position_x'], beacon[6]['position_y'], beacon[6]['speed']
                 )
 
                 dwell_r, dist_r = compute.calculate_dwell_time_and_distance(
-                    beacon_real[6]['speed'], beacon_real[6]['position_x'], beacon_real[6]['position_y']
+                    beacon[6]['position_x'], beacon[6]['position_y'], beacon[6]['speed']
                 )
 
                 if int(beacon[0])>=0:
@@ -170,8 +177,8 @@ def main( task_input_size=TASK_INPUT_SIZE,
                     beacon_with_rates = extend_beacon_with_datarate(beacon, datarate_by_id)
                     beacon_real_with_rates = extend_beacon_with_datarate(beacon_real, datarate_by_id)
 
-                    controller.receive_vehicle_beacon(beacon_with_rates, current_time_sec, dwell )
-                    controller.receive_vehicle_real_beacon(beacon_real_with_rates, current_time_sec, dwell_r)
+                    controller.receive_vehicle_beacon(beacon_with_rates, current_time_ms, dwell )
+                    controller.receive_vehicle_real_beacon(beacon_real_with_rates, current_time_ms, dwell_r)
 
                     last_v_beacon[v.id] = last_v_real[v.id] = current_time_ms
 
@@ -216,11 +223,11 @@ def main( task_input_size=TASK_INPUT_SIZE,
                 beacon = extend_cloud_beacon(c.create_communication_beacon(), inet_dr)
                 beacon_real = extend_cloud_beacon(c.create_real_beacon(), inet_dr)
 
-                beacon_df.loc[len(beacon_df)] = [current_time_sec] + list(beacon[:-1]) + [0, 0, 0, cloud_distance, 0, cloud_queue_capacity]
-                beacon_df_real.loc[len(beacon_df_real)] = [current_time_sec] + list(beacon_real[:-1]) + [0, 0, 0, cloud_distance, 0, cloud_queue_capacity]
+                beacon_df.loc[len(beacon_df)] = [current_time_sec] + list(beacon[:-1]) + [0, 0, 0, CLOUD_DISTANCE, 0, cloud_queue_capacity]
+                beacon_df_real.loc[len(beacon_df_real)] = [current_time_sec] + list(beacon_real[:-1]) + [0, 0, 0, CLOUD_DISTANCE, 0, cloud_queue_capacity]
 
                 controller.receive_cloud_beacon(beacon, current_time_ms)
-                print(f"[LOG] Beacon inviato - ID: {v.id}, Time: {current_time_sec:.2f}s, Dwell: {dwell:.1f}ms")
+                print(f"[LOG] Beacon inviato - ID: {c.id}, Time: {current_time_sec:.2f}s")
 
                 controller.receive_cloud_real_beacon(beacon_real, current_time_ms)
                 print(f"[LOG] Cloud beacon inviato - ID: {c.id}, Time: {current_time_sec:.2f}s")

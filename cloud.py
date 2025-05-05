@@ -1,8 +1,8 @@
 import random
+import seeds
+random.seed(seeds.seed_random)
 
-from config import *
 
-random.seed(SEED_RANDOM)
 
 class Cloud:
     def __init__(self, id=None, cpu_capacity=None, cloud_queue_capacity=None, cpu_power=None,

@@ -1,7 +1,7 @@
 import itertools
 import math
 from itertools import combinations
-from config import *
+from config import NO_ID
 
 # Importa optimize_task_allocation
 from value_function import optimize_task_allocation
@@ -38,7 +38,7 @@ def is_convex_game(coalition_values, player_ids):
 
     return True
 
-def calculate_shapley_values(beacons, tasks, include_NO=True):
+def calculate_shapley_values(beacons, tasks, task_rate, include_NO=True):
     """
     Calcola i valori di Shapley per tutti i giocatori (beacons + eventualmente "NO").
     Verifica se il gioco è convesso e aggiunge 1 ai valori di Shapley solo se il gioco NON è convesso.
@@ -91,7 +91,7 @@ def calculate_shapley_values(beacons, tasks, include_NO=True):
                     else:
                         try:
                             # Esegui l'ottimizzazione con i beacon della coalizione
-                            _, _, task_assignments, total_utility, _ = optimize_task_allocation(coalition_beacons, tasks, verbose=False)
+                            _, _, task_assignments, total_utility, _ = optimize_task_allocation(coalition_beacons, tasks, task_rate, verbose=False)
 
                             # Il valore della coalizione con "NO" è l'utilità totale + l'utilità di "NO"
                             coalition_values[coalition] = total_utility

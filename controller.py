@@ -1,4 +1,4 @@
-from config import *
+from config import CLOUD_QUEUE_CAPACITY
 import heapq
 
 class Controller:

@@ -4,6 +4,9 @@ import xml.etree.ElementTree as ET
 import pandas as pd
 from pathlib import Path
 import urllib.request
+import seeds
+import random
+random.seed(seeds.seed_random)
 
 #########################################
 # MANHATTAN GRID SIMULATION FUNCTIONS
@@ -168,7 +171,7 @@ def fix_manhattan_simulation(num_vehicles=10, total_time=100, time_step=0.1,
     sumo_cmd = [
         "C:\\Program Files (x86)\\Eclipse\\Sumo\\bin\\sumo",
         "-c", str(config_file),
-        "--seed=42"  # Aggiungi questa riga per impostare un seed fisso
+        f"--seed={seeds.seed_random}" # Aggiungi questa riga per impostare un seed fisso
     ]
 
     try:
@@ -453,7 +456,8 @@ def extract_city_traffic(city_name, country_code, bbox=None, simulation_time=360
                 "-r", str(routes_file),
                 "-e", str(simulation_time),
                 "-p", str(simulation_time / num_vehicles),  # Period between departures
-                "--random",  # Use random seed
+                "--random",  # usa comunque random, ma…
+                "--seed", str(seeds.seed_random),
                 "--trip-attributes=departLane=\"random\" departSpeed=\"max\""
             ]
 
@@ -487,9 +491,9 @@ def extract_city_traffic(city_name, country_code, bbox=None, simulation_time=360
     # Step 6: Run the simulation
     print("Running SUMO simulation...")
     sumo_cmd = [
-        "sumo",  # Use "sumo-gui" for visualization if needed
-        "-c", str(config_file),
-        "--seed=42"  # Aggiungi questa riga per impostare un seed fisso
+            "sumo",
+            "-c", str(config_file),
+            f"--seed={seeds.seed_random}"
     ]
 
     try:

@@ -99,6 +99,6 @@ def offloading_time_energy(task, beacon, algorithm_overhead=0):
         energies.extend([ul_energy_vue, dl_energy_vue])
 
     offloading_time = sum(times)
-    total_energy = sum(energies)
+    energy_tot = sum(energies)
 
-    return offloading_time, times, total_energy, energies
+    return offloading_time, times, energy_tot, energies

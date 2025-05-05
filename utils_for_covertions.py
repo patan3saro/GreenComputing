@@ -1,5 +1,6 @@
 from config import *
 
+
 def seconds_to_ms(time_s):
     return 1000*time_s
 def _to_type_of_task(task_deadline, types=POSSIBLE_TASK_TYPES):
