@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 
 import os
+# Disable parallelism: force single-threaded execution
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
 from datetime import datetime
 from itertools import product
 from main import main
@@ -17,7 +23,7 @@ def get_users():
 def get_workloads():
     return [i * 100_000_000 for i in range(1, 101)]
 
-# 4) Task‑rates for scenario B
+# 4) Task-rates for scenario B
 def get_task_rates():
     return (1, 5, 10, 20)
 
@@ -25,17 +31,21 @@ def get_task_rates():
 def get_vehicle_counts():
     return (1, 2, 3, 4, 5, 10, 20, 30, 40, 50, 60, 70, 80, 100)
 
-# 6) CPU capacities
-def get_cpu_caps():
-    return [round(i * 0.1, 1) for i in range(1, 11)]
-
-# 7) Queue capacities
+# 6) Queue capacities
 def get_queue_caps():
     return range(1, 11)
 
-# 8) Window for task collection
+# 7) Window for task collection
 def get_window_tc():
     return range(2, 11)
+
+# 8) CPU capacity factors (0.1 to 2.0 step 0.1)
+def get_cpu_factors():
+    return [round(i * 0.1, 1) for i in range(1, 21)]
+
+
+# Constant multiplier for vehicle CPU capacity
+VEHICLE_CPU_CAPACITY_BASE = 1.3e13
 
 
 def generate_param_sets():
@@ -44,85 +54,108 @@ def generate_param_sets():
     workloads = get_workloads()
     task_rates = get_task_rates()
     vehicles = get_vehicle_counts()
-    cpu_caps = get_cpu_caps()
     queue_caps = get_queue_caps()
     windows = get_window_tc()
+    cpu_factors = get_cpu_factors()
 
     sets = []
-    # A) Users × Workload (fixed task_rate=50)
-    for seed in seeds:
-        # varying users, fixed workload=100M
-        for u in users:
-            sets.append({'seed_random': seed,
-                         'users_number': u,
-                         'task_workload': 100_000_000,
-                         'task_rate': 50})
-        # varying workload, fixed users=50
-        for wl in workloads:
-            sets.append({'seed_random': seed,
-                         'users_number': 50,
-                         'task_workload': wl,
-                         'task_rate': 50})
+    # A1) Varying users, fixed workload=100M
+    for seed, u in product(seeds, users):
+        sets.append({'scenario': 'A1', 'seed_random': seed,
+                     'users_number': u,
+                     'task_workload': 100_000_000,
+                     'task_rate': 50})
+    # A2) Varying workload, fixed users=50
+    for seed, wl in product(seeds, workloads):
+        sets.append({'scenario': 'A2', 'seed_random': seed,
+                     'users_number': 50,
+                     'task_workload': wl,
+                     'task_rate': 50})
 
-    # B) Task‑rate for users=50, workload=100M
+    # B) Task-rate for users=50, workload=100M
     for seed, tr in product(seeds, task_rates):
-        sets.append({'seed_random': seed,
+        sets.append({'scenario': 'B', 'seed_random': seed,
                      'users_number': 50,
                      'task_workload': 100_000_000,
                      'task_rate': tr})
 
     # C) Number of vehicles
     for seed, nv in product(seeds, vehicles):
-        sets.append({'seed_random': seed,
+        sets.append({'scenario': 'C', 'seed_random': seed,
                      'users_number': 50,
                      'task_workload': 100_000_000,
                      'task_rate': 50,
                      'num_vehicles': nv})
 
-    # D) CPU capacity of vehicles
-    for seed, cpu in product(seeds, cpu_caps):
-        sets.append({'seed_random': seed,
-                     'users_number': 50,
-                     'task_workload': 100_000_000,
-                     'task_rate': 50,
-                     'num_vehicles': 50,
-                     'vehicle_cpu_capacity': cpu})
-
-    # E) Queue capacity
+    # D) Queue capacity
     for seed, qc in product(seeds, queue_caps):
-        sets.append({'seed_random': seed,
+        sets.append({'scenario': 'D', 'seed_random': seed,
                      'users_number': 50,
                      'task_workload': 100_000_000,
                      'task_rate': 50,
                      'num_vehicles': 50,
-                     'vehicle_cpu_capacity': 0.5,
                      'queue_capacity_vehicle': qc})
 
-    # F) Window for task collection
-    for seed, wc in product(seeds, windows):
-        sets.append({'seed_random': seed,
+    # E) Window for task collection × Workload
+    for seed, wc, wl in product(seeds, windows, workloads):
+        sets.append({'scenario': 'E', 'seed_random': seed,
+                     'users_number': 50,
+                     'task_workload': wl,
+                     'task_rate': 50,
+                     'num_vehicles': 50,
+                     'queue_capacity_vehicle': 5,
+                     'window_task_collection': wc})
+
+    # F) CPU capacity: factor × VEHICLE_CPU_CAPACITY_BASE
+    for seed, cf in product(seeds, cpu_factors):
+        capacity = cf * VEHICLE_CPU_CAPACITY_BASE
+        sets.append({'scenario': 'F', 'seed_random': seed,
                      'users_number': 50,
                      'task_workload': 100_000_000,
                      'task_rate': 50,
                      'num_vehicles': 50,
-                     'vehicle_cpu_capacity': 0.5,
                      'queue_capacity_vehicle': 5,
-                     'window_task_collection': wc})
+                     'vehicle_cpu_capacity': capacity,
+                     'cpu_factor': cf})
 
     return sets
 
 
 def main_run():
-    # create results folder with timestamp
+    # create base results folder with timestamp
     timestamp = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    results_folder = os.path.join("results", timestamp)
-    os.makedirs(results_folder, exist_ok=True)
+    base_folder = os.path.join("results", timestamp)
+    os.makedirs(base_folder, exist_ok=True)
 
     params_list = generate_param_sets()
     total = len(params_list)
     for idx, params in enumerate(params_list, start=1):
-        print(f"[{idx}/{total}] Running with params: {params}")
-        main(results_folder, **params)
+        scenario = params.pop('scenario')
+
+        # Define folder structure per scenario
+        if scenario == 'A1':
+            subfolder = os.path.join('A1_users', f"users_{params['users_number']}")
+        elif scenario == 'A2':
+            subfolder = os.path.join('A2_workloads', f"workload_{params['task_workload']}")
+        elif scenario == 'B':
+            subfolder = os.path.join('B_rates', f"rate_{params['task_rate']}")
+        elif scenario == 'C':
+            subfolder = os.path.join('C_vehicles', f"vehicles_{params['num_vehicles']}")
+        elif scenario == 'D':
+            subfolder = os.path.join('D_queue_caps', f"queue_{params['queue_capacity_vehicle']}")
+        elif scenario == 'E':
+            subfolder = os.path.join('E_windows', f"window_{params['window_task_collection']}",
+                                     f"workload_{params['task_workload']}")
+        elif scenario == 'F':
+            subfolder = os.path.join('F_cpu_caps', f"cpu_{params['cpu_factor']}")
+        else:
+            subfolder = ''
+
+        run_folder = os.path.join(base_folder, subfolder)
+        os.makedirs(run_folder, exist_ok=True)
+
+        print(f"[{idx}/{total}] Scenario {scenario}: running with params {params}")
+        main(run_folder, **params)
 
 
 if __name__ == "__main__":

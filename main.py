@@ -253,9 +253,7 @@ def main(results_folder, task_input_size=TASK_INPUT_SIZE,
 
                     # nome ricco di info
                     alloc_filename = (
-                            f"allocations_users_{users_number}"
-                            f"_workload_{task_workload}"
-                            f"_seed_{seed_random}.txt"
+                            f"allocations.txt"
                     )
                     alloc_path = os.path.join(results_folder, alloc_filename)
 
@@ -270,9 +268,7 @@ def main(results_folder, task_input_size=TASK_INPUT_SIZE,
                     tot_utility_real, infos = real_value_function(real_beacons, task_assignments, algo_overhead, task_rate)
 
                     real_fn = (
-                            f"realization_users_{users_number}"
-                            f"_workload_{task_workload}"
-                            f"_seed_{seed_random}.txt"
+                            f"realization.txt"
                             )
 
                     with open(os.path.join(results_folder, real_fn), 'w') as f:
@@ -289,17 +285,13 @@ def main(results_folder, task_input_size=TASK_INPUT_SIZE,
     beacon_df.to_csv(
         os.path.join(
         results_folder,
-        f"beacons_users_{users_number}"
-        f"_workload_{task_workload}"
-        f"_seed_{seed_random}.csv"
+        f"beacons.csv"
         ),
         index = False
         )
       # nuovo filename con parametri
     tasks_fn = (
-        f"tasks_users_{users_number}"
-        f"_workload_{task_workload}"
-        f"_seed_{seed_random}.csv"
+        f"tasks.csv"
         )
     tasks_path = os.path.join(results_folder, tasks_fn)
     tasks_df.to_csv(tasks_path, index=False)
