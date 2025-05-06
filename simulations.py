@@ -1,115 +1,129 @@
 #!/usr/bin/env python3
-import subprocess
-import numpy as np
 
-# 1) I 10 seed da iterare
-seeds = list(range(1, 11))
+import os
+from datetime import datetime
+from itertools import product
+from main import main
 
-# 2) Numero di users
-user_counts = (1, 2, 5, 10, 15, 20, 25, 30, 40, 50, 60, 80, 100)
+# 1) Random seeds
+def get_seeds():
+    return list(range(2))
 
-# 3) Workload: da 100 M a 10 000 M con step 100 M
-workloads = [i * 100_000_000 for i in range(1, 101)]
+# 2) Number of users
+def get_users():
+    return (1, 2, 5, 10, 15, 20, 25, 30, 40, 50, 60, 80, 100)
 
-# 4) Task‐rate per utenti fissi a 50
-task_rates = (1, 5, 10, 20)
+# 3) Workload: 100M to 10_000M step 100M
+def get_workloads():
+    return [i * 100_000_000 for i in range(1, 101)]
 
-# 5) Numero di veicoli
-vehicle_counts = (1, 2, 3, 4, 5, 10, 20, 30, 40, 50, 60, 70, 80, 100)
+# 4) Task‑rates for scenario B
+def get_task_rates():
+    return (1, 5, 10, 20)
 
-# 6) CPU capacity dei veicoli: 0.1 → 1.0 step 0.1
-cpu_caps = np.arange(0.1, 1.01, 0.1)
+# 5) Number of vehicles
+def get_vehicle_counts():
+    return (1, 2, 3, 4, 5, 10, 20, 30, 40, 50, 60, 70, 80, 100)
 
-# 7) Queue capacity dei veicoli: 1 → 10
-queue_caps = range(1, 11)
+# 6) CPU capacities
+def get_cpu_caps():
+    return [round(i * 0.1, 1) for i in range(1, 11)]
 
-# 8) window_task_collection: 2 ms → 10 ms step 1
-window_tc = range(2, 11)
+# 7) Queue capacities
+def get_queue_caps():
+    return range(1, 11)
 
-def run_main(**kwargs):
-    """
-    Costruisce e invoca:
-      python main.py --param1 val1 --param2 val2 ...
-    """
-    cmd = ["python", "main.py"]
-    for k, v in kwargs.items():
-        cmd += [f"--{k}", str(v)]
-    print("RUN:", " ".join(cmd))
-    subprocess.run(cmd, check=True)
+# 8) Window for task collection
+def get_window_tc():
+    return range(2, 11)
 
-# ───────────────────────────────────────────────────────────────────────────
-# A) Esperimento Users × Workload (task_rate fisso a 50)
-for seed in seeds:
-    for users in user_counts:
+
+def generate_param_sets():
+    seeds = get_seeds()
+    users = get_users()
+    workloads = get_workloads()
+    task_rates = get_task_rates()
+    vehicles = get_vehicle_counts()
+    cpu_caps = get_cpu_caps()
+    queue_caps = get_queue_caps()
+    windows = get_window_tc()
+
+    sets = []
+    # A) Users × Workload (fixed task_rate=50)
+    for seed in seeds:
+        # varying users, fixed workload=100M
+        for u in users:
+            sets.append({'seed_random': seed,
+                         'users_number': u,
+                         'task_workload': 100_000_000,
+                         'task_rate': 50})
+        # varying workload, fixed users=50
         for wl in workloads:
-            run_main(
-                seed=seed,
-                num_users=users,
-                workload=wl,
-                task_rate=50
-            )
+            sets.append({'seed_random': seed,
+                         'users_number': 50,
+                         'task_workload': wl,
+                         'task_rate': 50})
 
-# ───────────────────────────────────────────────────────────────────────────
-# B) Esperimento Task‐rate per num_users=50 (workload fissato, es: 100 M)
-for seed in seeds:
-    for tr in task_rates:
-        run_main(
-            seed=seed,
-            num_users=50,
-            workload=100_000_000,
-            task_rate=tr
-        )
+    # B) Task‑rate for users=50, workload=100M
+    for seed, tr in product(seeds, task_rates):
+        sets.append({'seed_random': seed,
+                     'users_number': 50,
+                     'task_workload': 100_000_000,
+                     'task_rate': tr})
 
-# ───────────────────────────────────────────────────────────────────────────
-# C) Esperimento Numero di veicoli (users=50, wl=100 M, tr=50)
-for seed in seeds:
-    for nv in vehicle_counts:
-        run_main(
-            seed=seed,
-            num_users=50,
-            workload=100_000_000,
-            task_rate=50,
-            num_vehicles=nv
-        )
+    # C) Number of vehicles
+    for seed, nv in product(seeds, vehicles):
+        sets.append({'seed_random': seed,
+                     'users_number': 50,
+                     'task_workload': 100_000_000,
+                     'task_rate': 50,
+                     'num_vehicles': nv})
 
-# ───────────────────────────────────────────────────────────────────────────
-# D) Esperimento CPU capacity (users=50, wl=100 M, tr=50, nv=10)
-for seed in seeds:
-    for cpu in cpu_caps:
-        run_main(
-            seed=seed,
-            num_users=50,
-            workload=100_000_000,
-            task_rate=50,
-            num_vehicles=10,
-            cpu_capacity=cpu
-        )
+    # D) CPU capacity of vehicles
+    for seed, cpu in product(seeds, cpu_caps):
+        sets.append({'seed_random': seed,
+                     'users_number': 50,
+                     'task_workload': 100_000_000,
+                     'task_rate': 50,
+                     'num_vehicles': 50,
+                     'vehicle_cpu_capacity': cpu})
 
-# ───────────────────────────────────────────────────────────────────────────
-# E) Esperimento Queue capacity (users=50, wl=100 M, tr=50, nv=10, cpu=0.5)
-for seed in seeds:
-    for qc in queue_caps:
-        run_main(
-            seed=seed,
-            num_users=50,
-            workload=100_000_000,
-            task_rate=50,
-            num_vehicles=10,
-            cpu_capacity=0.5,
-            queue_capacity=qc
-        )
+    # E) Queue capacity
+    for seed, qc in product(seeds, queue_caps):
+        sets.append({'seed_random': seed,
+                     'users_number': 50,
+                     'task_workload': 100_000_000,
+                     'task_rate': 50,
+                     'num_vehicles': 50,
+                     'vehicle_cpu_capacity': 0.5,
+                     'queue_capacity_vehicle': qc})
 
-# ───────────────────────────────────────────────────────────────────────────
-# F) Esperimento window_task_collection (users=50, wl=100 M, tr=50, nv=10, cpu=0.5, qc=5)
-for seed in seeds:
-    for wc in window_tc:
-        run_main(
-            seed=seed,
-            num_users=50,
-            workload=100_000_000,
-            task_rate=50,
-            num_vehicles=10,
-            cpu_capacity=0.5,
-            queue_capacity=5,
-            window_task_collection=wc
-        )
+    # F) Window for task collection
+    for seed, wc in product(seeds, windows):
+        sets.append({'seed_random': seed,
+                     'users_number': 50,
+                     'task_workload': 100_000_000,
+                     'task_rate': 50,
+                     'num_vehicles': 50,
+                     'vehicle_cpu_capacity': 0.5,
+                     'queue_capacity_vehicle': 5,
+                     'window_task_collection': wc})
+
+    return sets
+
+
+def main_run():
+    # create results folder with timestamp
+    timestamp = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+    results_folder = os.path.join("results", timestamp)
+    os.makedirs(results_folder, exist_ok=True)
+
+    params_list = generate_param_sets()
+    total = len(params_list)
+    for idx, params in enumerate(params_list, start=1):
+        print(f"[{idx}/{total}] Running with params: {params}")
+        main(results_folder, **params)
+
+
+if __name__ == "__main__":
+    main_run()

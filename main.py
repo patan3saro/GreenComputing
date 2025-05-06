@@ -4,6 +4,7 @@ import random, numpy as np
 import math
 
 import pandas as pd
+from datetime import datetime
 
 import utils_computing as compute
 import utils_for_covertions as convert
@@ -83,7 +84,7 @@ def create_cloud_nodes(num, cloud_id, cpu_cap, cloud_queue_capacity,  tx_power, 
                   tx_power=tx_power, energy_available=energy, dollars_per_kwh=price)
             for i in range(num)]
 
-def main( task_input_size=TASK_INPUT_SIZE,
+def main(results_folder, task_input_size=TASK_INPUT_SIZE,
     task_output_size=TASK_OUTPUT_SIZE,
     task_workload=TASK_WORKLOAD,
     city=CITY, city_bbox=CITY_BBOX, seed_random=SEED_RANDOM, no_id=NO_ID, verbose=VERBOSE,
@@ -109,9 +110,6 @@ def main( task_input_size=TASK_INPUT_SIZE,
     random.seed(seeds.seed_random)
     np.random.seed(seeds.seed_random)
 
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    results_folder = f'results/{timestamp}'
-    os.makedirs(results_folder, exist_ok=True)
     print("=== Avvio Simulazione ===")
 
     vehicles = create_vehicles(num_vehicles, city, city_bbox, max_simulation_time_ms,
@@ -253,7 +251,15 @@ def main( task_input_size=TASK_INPUT_SIZE,
                     busy_nodes_id += [{'busy_id': int(t['node'][1]), 'time': math.ceil(convert.seconds_to_ms(t['details']['offloading_time']))}
                                       for t in task_assignments if int(t['node'][1]) >= 0]
 
-                    with open(f'{results_folder}/allocations.txt', 'w') as f:
+                    # nome ricco di info
+                    alloc_filename = (
+                            f"allocations_users_{users_number}"
+                            f"_workload_{task_workload}"
+                            f"_seed_{seed_random}.txt"
+                    )
+                    alloc_path = os.path.join(results_folder, alloc_filename)
+
+                    with open(alloc_path, 'w') as f:
                         f.write(f"{current_time_sec}\t{task_assignments}\n")
 
                     task_allocation_count += 1
@@ -263,8 +269,14 @@ def main( task_input_size=TASK_INPUT_SIZE,
                     real_beacons = controller.real_beacons
                     tot_utility_real, infos = real_value_function(real_beacons, task_assignments, algo_overhead, task_rate)
 
-                    with open(f'results/realization_{timestamp}.txt', 'w') as f:
-                        f.write(f"{current_time_sec}\t{tot_utility_real}\n{infos}\n")
+                    real_fn = (
+                            f"realization_users_{users_number}"
+                            f"_workload_{task_workload}"
+                            f"_seed_{seed_random}.txt"
+                            )
+
+                    with open(os.path.join(results_folder, real_fn), 'w') as f:
+                             f.write(f"{current_time_sec}\t{tot_utility_real}\n{infos}\n")
 
                 busy_nodes_id = [n for n in busy_nodes_id if n['time'] > 1]
                 for n in busy_nodes_id: n['time'] -= 1
@@ -274,8 +286,23 @@ def main( task_input_size=TASK_INPUT_SIZE,
     print("\n=== Simulazione completata ===")
     print(f"Tempo totale: {max_simulation_time_ms} ms | Task generati: {count_all_tasks} | Processati: {total_tasks_processed} | Utilit\u00e0: {total_utility}")
 
-    beacon_df.to_csv(f'{results_folder}/beacons.csv', index=False)
-    tasks_df.to_csv(f'{results_folder}/tasks.csv', index=False)
+    beacon_df.to_csv(
+        os.path.join(
+        results_folder,
+        f"beacons_users_{users_number}"
+        f"_workload_{task_workload}"
+        f"_seed_{seed_random}.csv"
+        ),
+        index = False
+        )
+      # nuovo filename con parametri
+    tasks_fn = (
+        f"tasks_users_{users_number}"
+        f"_workload_{task_workload}"
+        f"_seed_{seed_random}.csv"
+        )
+    tasks_path = os.path.join(results_folder, tasks_fn)
+    tasks_df.to_csv(tasks_path, index=False)
 
 if __name__ == "__main__":
-    main()
+    main(results_folder='results')
