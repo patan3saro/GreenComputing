@@ -10,10 +10,12 @@ os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
 from datetime import datetime
 from itertools import product
 from main import main
+import seeds as sds
+
 
 # 1) Random seeds
 def get_seeds():
-    return list(range(2))
+    return list(range(1))
 
 # 2) Number of users
 def get_users():
@@ -61,12 +63,15 @@ def generate_param_sets():
     sets = []
     # A1) Varying users, fixed workload=100M
     for seed, u in product(seeds, users):
+
+        sds.seed_random = seed
         sets.append({'scenario': 'A1', 'seed_random': seed,
                      'users_number': u,
                      'task_workload': 100_000_000,
                      'task_rate': 50})
     # A2) Varying workload, fixed users=50
     for seed, wl in product(seeds, workloads):
+        sds.seed_random = seed
         sets.append({'scenario': 'A2', 'seed_random': seed,
                      'users_number': 50,
                      'task_workload': wl,
@@ -74,6 +79,7 @@ def generate_param_sets():
 
     # B) Task-rate for users=50, workload=100M
     for seed, tr in product(seeds, task_rates):
+        sds.seed_random = seed
         sets.append({'scenario': 'B', 'seed_random': seed,
                      'users_number': 50,
                      'task_workload': 100_000_000,
@@ -89,6 +95,7 @@ def generate_param_sets():
 
     # D) Queue capacity
     for seed, qc in product(seeds, queue_caps):
+        sds.seed_random = seed
         sets.append({'scenario': 'D', 'seed_random': seed,
                      'users_number': 50,
                      'task_workload': 100_000_000,
@@ -97,10 +104,11 @@ def generate_param_sets():
                      'queue_capacity_vehicle': qc})
 
     # E) Window for task collection × Workload
-    for seed, wc, wl in product(seeds, windows, workloads):
+    for seed, wc, in product(seeds, windows):
+        sds.seed_random = seed
         sets.append({'scenario': 'E', 'seed_random': seed,
                      'users_number': 50,
-                     'task_workload': wl,
+                     'task_workload': 100_000_000,
                      'task_rate': 50,
                      'num_vehicles': 50,
                      'queue_capacity_vehicle': 5,
@@ -108,6 +116,7 @@ def generate_param_sets():
 
     # F) CPU capacity: factor × VEHICLE_CPU_CAPACITY_BASE
     for seed, cf in product(seeds, cpu_factors):
+        sds.seed_random = seed
         capacity = cf * VEHICLE_CPU_CAPACITY_BASE
         sets.append({'scenario': 'F', 'seed_random': seed,
                      'users_number': 50,
@@ -115,8 +124,7 @@ def generate_param_sets():
                      'task_rate': 50,
                      'num_vehicles': 50,
                      'queue_capacity_vehicle': 5,
-                     'vehicle_cpu_capacity': capacity,
-                     'cpu_factor': cf})
+                     'vehicle_cpu_capacity': capacity})
 
     return sets
 
@@ -147,7 +155,7 @@ def main_run():
             subfolder = os.path.join('E_windows', f"window_{params['window_task_collection']}",
                                      f"workload_{params['task_workload']}")
         elif scenario == 'F':
-            subfolder = os.path.join('F_cpu_caps', f"cpu_{params['cpu_factor']}")
+            subfolder = os.path.join('F_cpu_caps', f"cpu_{params['vehicle_cpu_capacity']}")
         else:
             subfolder = ''
 

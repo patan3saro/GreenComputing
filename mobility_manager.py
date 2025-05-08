@@ -6,7 +6,9 @@ from pathlib import Path
 import urllib.request
 import seeds
 import random
-random.seed(seeds.seed_random)
+
+random_seed=seeds.seed_random
+random.seed(random_seed)
 
 #########################################
 # MANHATTAN GRID SIMULATION FUNCTIONS
@@ -171,7 +173,7 @@ def fix_manhattan_simulation(num_vehicles=10, total_time=100, time_step=0.1,
     sumo_cmd = [
         "C:\\Program Files (x86)\\Eclipse\\Sumo\\bin\\sumo",
         "-c", str(config_file),
-        f"--seed={seeds.seed_random}" # Aggiungi questa riga per impostare un seed fisso
+        f"--seed={random_seed}" # Aggiungi questa riga per impostare un seed fisso
     ]
 
     try:
@@ -457,7 +459,7 @@ def extract_city_traffic(city_name, country_code, bbox=None, simulation_time=360
                 "-e", str(simulation_time),
                 "-p", str(simulation_time / num_vehicles),  # Period between departures
                 "--random",  # usa comunque random, ma…
-                "--seed", str(seeds.seed_random),
+                "--seed", str(random_seed),
                 "--trip-attributes=departLane=\"random\" departSpeed=\"max\""
             ]
 
@@ -493,7 +495,7 @@ def extract_city_traffic(city_name, country_code, bbox=None, simulation_time=360
     sumo_cmd = [
             "sumo",
             "-c", str(config_file),
-            f"--seed={seeds.seed_random}"
+            f"--seed={random_seed}"
     ]
 
     try:

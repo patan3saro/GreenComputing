@@ -73,11 +73,29 @@ def generate_exponential_tasks(rate, task_input_size, task_output_size, task_wor
 
 
 def create_vehicles(num, city, bbox, sim_time_ms, cpu_cap, cpu_power, ue_tx, energy, price, queue_capacity):
-    _, df = extract_city_traffic(city, "it", bbox, sim_time_ms / 1000, 0.1, num)
+    output_dir, df = extract_city_traffic(city, "it", bbox, sim_time_ms / 1000, 0.1, num)
+    if df is None or df.empty:
+        raise RuntimeError(f"Nessun dato di traffico estratto da {output_dir}")
+    # Se la colonna non si chiama 'id', rinominala
+    if 'id' not in df.columns:
+        if 'vehicle_id' in df.columns:
+            df = df.rename(columns={'vehicle_id': 'id'})
+        else:
+            df = df.rename(columns={df.columns[0]: 'id'})  # fallback generico
+    # Ora è sicuro ordinare
     df = df.sort_values(by=['id', 'time'], ascending=[True, False])
-    return [Vehicle(id=vid, cpu_capacity=cpu_cap, queue_capacity=queue_capacity, cpu_power=cpu_power, ue_power=ue_tx,
-                    energy_available=energy, dollars_per_kwh=price, mobility_df=g)
-            for vid, g in df.groupby('id')]
+    return [
+        Vehicle(id=vid,
+                cpu_capacity=cpu_cap,
+                queue_capacity=queue_capacity,
+                cpu_power=cpu_power,
+                ue_power=ue_tx,
+                energy_available=energy,
+                dollars_per_kwh=price,
+                mobility_df=g)
+        for vid, g in df.groupby('id')
+    ]
+
 
 def create_cloud_nodes(num, cloud_id, cpu_cap, cloud_queue_capacity,  tx_power, energy, price):
     return [Cloud(id=cloud_id - i, cpu_capacity=cpu_cap, cloud_queue_capacity=cloud_queue_capacity, cpu_power=cpu_cap,

@@ -1,2 +1,2 @@
 
-seed_random = None
+seed_random = 1
