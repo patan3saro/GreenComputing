@@ -3,6 +3,10 @@ from config import *
 
 def seconds_to_ms(time_s):
     return 1000*time_s
+
+def ms_to_seconds(time_ms):
+    return time_ms*0.001
+
 def _to_type_of_task(task_deadline, types=POSSIBLE_TASK_TYPES):
     # Iterate through possible_types with their indices
     for idx, deadline_type in enumerate(types):

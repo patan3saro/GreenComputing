@@ -572,7 +572,7 @@ def extract_trace_dataframe(trace_file_path):
 
                 # Add row to data
                 data.append({
-                    'id': vehicle_id,
+                    'id': int(vehicle_id),
                     'position_x': x,
                     'position_y': y,
                     'speed': speed,
@@ -636,3 +636,5 @@ if __name__ == "__main__":
         print(f"Time steps: {rome_df['time'].nunique()}")
         print("\nFirst 5 rows:")
         print(rome_df.head())
+
+

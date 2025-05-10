@@ -1,2 +1,2 @@
 
-seed_random = 1
+seed_random = 100

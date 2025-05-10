@@ -16,24 +16,20 @@ def calculate_dwell_time_and_distance(position_x, position_y, speed, gnb_positio
 
     return dwell_time, euclidean_distance
 
-def algorithm_overhead_time():
-    pass  # implement if needed
-
 def energy_update(energy_available, offloading_energy):
     return energy_available - offloading_energy
 
-def offloading_time_energy(task, beacon, algorithm_overhead=0):
+def offloading_time_energy(task, beacon, algorithm_overhead):
     input_size = task['I']
     output_size = task['O']
     workload = task['W']
 
-    ue_tx_power_watts = dbm_to_watt(UE_TX_POWER)
     gnb_tx_power_5g_watts = dbm_to_watt(GNB_TX_POWER_5G)
     gnb_tx_power_inet_watts = dbm_to_watt(GNB_TX_POWER_INET)
     node_tx_power_watts = dbm_to_watt(beacon[2]['tx_power'])
 
-    dr_5G_ul = beacon[2]['useful_throughput_ul']
-    dr_5G_dl = beacon[2]['useful_throughput_dl']
+    dr_5G_ul = beacon[2]['ul_datarate']
+    dr_5G_dl = beacon[2]['dl_datarate']
 
     inv_dr_5g_ul = 1.0 / dr_5G_ul if dr_5G_ul > 0 else float('inf')
     inv_dr_5g_dl = 1.0 / dr_5G_dl if dr_5G_dl > 0 else float('inf')
@@ -55,7 +51,7 @@ def offloading_time_energy(task, beacon, algorithm_overhead=0):
     ]
 
     pue_dl_energy = gnb_tx_power_5g_watts * pue_dl_transmission_radio
-    cpu_power = beacon[2]['power']
+    cpu_power = beacon[2]['cpu_power']
     elaboration_energy = cpu_power * elaboration
     algorithm_energy = CONTROLLER_CPU_POWER * algorithm_overhead
 

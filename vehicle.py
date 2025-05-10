@@ -1,125 +1,60 @@
 import random
-import seeds
-random.seed(seeds.seed_random)
-
-
-import seeds
 
 class Vehicle:
-    def __init__(self, id=None, cpu_capacity=None, queue_capacity=None,  cpu_power=None, ue_power=None, energy_available=None,
-                 dollars_per_kwh=None, mobility_df=None):
-
-        # One instance values
-        self.id = id  # constant for all the simulation
-        self.cpu_capacity = cpu_capacity  # constant
-        self.queue_capacity = int(queue_capacity)
-        self.cpu_power = cpu_power  # constant
-        self.energy_available = energy_available  # changes and diminishes over time
+    def __init__(self, vehicle_id=None, cpu_capacity=None, queue_capacity=None, cpu_power=None,
+                 ue_power=None, energy_available=None, dollars_per_kwh=None, ul_datarate=None, dl_datarate=None, position_x=None, position_y=None, speed=None):
+        self.vehicle_id = vehicle_id
+        self.cpu_capacity = cpu_capacity
+        self.cpu_power = cpu_power
         self.ue_power = ue_power
+        self.energy_available = energy_available
         self.dollars_per_kwh = dollars_per_kwh
+        self.queue_capacity = queue_capacity
+        self.ul_datarate = ul_datarate
+        self.dl_datarate = dl_datarate
+        self.position_x = position_x
+        self.position_y = position_y
+        self.speed = speed
 
-
-        # DataFrame containing mobility data (position_x, position_y, speed, etc.)
-        self.mobility_df = mobility_df
-
-    def get_position_and_speed(self, instant):
+    def create_beacon(self, instant_sec: float, randomize: bool = False,):
         """
-        Get vehicle position and speed at the time instant closest to the provided value.
-
-        Parameters:
-        - instant: The time value to find position and speed for
-
-        Returns:
-        - Tuple of (position_x, position_y, speed) for the time closest to the given instant
-        - None if mobility data is not available
+        Returns a beacon tuple with mobility info and optional random variation.
         """
-        if self.mobility_df is None:
-            raise ValueError("Mobility data is not defined")
+        # Validate
+        for attr in ['vehicle_id', 'cpu_capacity', 'queue_capacity', 'cpu_power', 'ue_power', 'energy_available', 'dollars_per_kwh',
+                     'ul_datarate', 'dl_datarate', 'position_x', 'position_y', 'speed']:
+            if getattr(self, attr) is None:
+                raise ValueError(f"Vehicle {attr} is not defined")
 
-        # If 'time' is an index
-        if self.mobility_df.index.name == 'time':
-            # Find closest index value
-            closest_idx = (self.mobility_df.index - instant).abs().argmin()
-            row = self.mobility_df.iloc[closest_idx]
-            return row['position_x'], row['position_y'], row['speed']
+        # Base values
+        beacon_id = self.vehicle_id
+        cpu_capacity = self.cpu_capacity
+        cpu_power = self.cpu_power
+        ue_power = self.ue_power
+        energy_available = self.energy_available
+        dollars_per_kwh = self.dollars_per_kwh
+        queue_capacity = self.queue_capacity
 
-        # If 'time' is a column
-        elif 'time' in self.mobility_df.columns:
-            # Find closest time value
-            closest_idx = (self.mobility_df['time'] - instant).abs().argmin()
-            row = self.mobility_df.iloc[closest_idx]
-            return row['position_x'], row['position_y'], row['speed']
+        if randomize:
+            cpu_capacity = random.normalvariate(cpu_capacity, cpu_capacity * 0.1)
+            cpu_power = random.normalvariate(cpu_power, cpu_power * 0.1)
+            ue_power = random.normalvariate(ue_power, ue_power * 0.1)
+            energy_available = random.normalvariate(energy_available, energy_available * 0.1)
+            dollars_per_kwh = random.normalvariate(dollars_per_kwh, dollars_per_kwh * 0.05)
+            queue_capacity = random.randint(queue_capacity, queue_capacity + 10)
 
-        # If no time column or index is found
-        return None
+        return instant_sec, beacon_id, cpu_capacity,  queue_capacity, cpu_power, ue_power, energy_available, dollars_per_kwh, self.ul_datarate, self.dl_datarate, self.position_x, self.position_y, self.speed
 
-    def create_communication_beacon(self, instant):
+    def set_istantaneous_mobility_pattern(self, instant_sec, mobility_df):
+        # Trova l'indice con timestamp più vicino a `instant`
+        idx = (mobility_df['time'] - instant_sec).abs().idxmin()
+        row = mobility_df.loc[idx]
+        self.position_x = row['position_x']
+        self.position_y = row['position_y']
+        self.speed = row['speed']
 
-        # Check for required attributes
-        if self.id is None:
-            raise ValueError("Vehicle ID is not defined")
-        if self.cpu_power is None:
-            raise ValueError("CPU power is not defined")
-        if self.energy_available is None:
-            raise ValueError("Energy available is not defined")
-        if self.cpu_capacity is None:
-            raise ValueError("CPU capacity is not defined")
-        if self.ue_power is None:
-            raise ValueError("UE power is not defined")
-        if self.dollars_per_kwh is None:
-            raise ValueError("Dollars per kWh is not defined")
-
-        mobility_info = self.get_position_and_speed(instant)
+    def set_istantaneous_datarate_pattern(self,ul_datarate, dl_datarate):
+        self.ul_datarate = ul_datarate
+        self.dl_datarate = dl_datarate
 
 
-        if mobility_info is None:
-            return None
-
-        pos_x, pos_y, speed = mobility_info
-
-        # Create mobility dictionary instead of tuple
-        mobility_dict = {
-            'position_x': pos_x,
-            'position_y': pos_y,
-            'speed': speed
-        }
-
-        # Return a tuple with beacon information
-        return (self.id, self.cpu_capacity, self.cpu_power, self.ue_power,
-                self.energy_available, self.dollars_per_kwh, mobility_dict, self.queue_capacity)
-
-    def create_real_beacon(self, beacon_original):
-
-        # Get position and speed at this instant
-        mobility_info = beacon_original[6]
-
-        # Generate beacon ID based on vehicle ID
-        beacon_id = self.id
-
-        # Generate randomized values based on vehicle attributes with normal distribution
-        # For each value, use the vehicle's attribute as mean and add random variation
-
-        # CPU capacity with random variation
-        beacon_cpu_capacity = random.normalvariate(self.cpu_capacity, self.cpu_capacity * 0.1)
-
-        # CPU power with random variation
-        beacon_cpu_power = random.normalvariate(self.cpu_power, self.cpu_power * 0.1)
-
-        # UE power with random variation
-        beacon_ue_power = random.normalvariate(self.ue_power, self.ue_power * 0.1)
-
-        # Energy available with random variation
-        beacon_energy = random.normalvariate(self.energy_available, self.energy_available * 0.1)
-
-        beacon_dollars_per_kwh = random.normalvariate(self.dollars_per_kwh, self.dollars_per_kwh * 0.05)
-        beacon_queue_capacity = random.randint(self.queue_capacity, 10 + self.queue_capacity)
-
-        """
-        print(f"Real beacon created by vehicle {self.id}")
-        print(f"CPU capacity: {beacon_cpu_capacity:.2f}, CPU power: {beacon_cpu_power:.2f}")
-        print(f"UE power: {beacon_ue_power:.2f}, Energy: {beacon_energy:.2f}")
-        print(f"Energy cost: ${beacon_dollars_per_kwh:.4f} per kWh")
-        """
-        # Return a tuple with all beacon information
-        return (beacon_id, beacon_cpu_capacity, beacon_cpu_power, beacon_ue_power,
-                beacon_energy, beacon_dollars_per_kwh, mobility_info, beacon_queue_capacity)

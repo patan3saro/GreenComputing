@@ -68,7 +68,7 @@ def generate_param_sets():
         sets.append({'scenario': 'A1', 'seed_random': seed,
                      'users_number': u,
                      'task_workload': 100_000_000,
-                     'task_rate': 50})
+                     'task_rate': 500})
     # A2) Varying workload, fixed users=50
     for seed, wl in product(seeds, workloads):
         sds.seed_random = seed
