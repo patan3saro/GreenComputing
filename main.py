@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-import random
+import math
 
 from config import *
 from vehicle import Vehicle
@@ -22,7 +22,7 @@ def filter_tasks_by_arrival_time(tasks, start_time_ms, end_time_ms):
 
 def generate_exponential_tasks(rate, task_input_size, task_output_size, task_workload,
                                num_users, max_sim_time_ms,
-                               task_type_tuple, task_type_probability):
+                               task_type_tuple, task_type_probability, rng):
 
 
     start_time_ms, end_time_ms = (0, max_sim_time_ms)
@@ -41,7 +41,7 @@ def generate_exponential_tasks(rate, task_input_size, task_output_size, task_wor
 
     # Applichiamo una normale centrata sul valore scelto
     # con deviazione standard di 0.1
-    deadlines = [random.normalvariate(v, 0.1) for v in scelte]
+    deadlines = [rng.normalvariate(v, 0.1) for v in scelte]
     deadlines_seconds = np.array(deadlines)/ 1000
 
     tasks = [{
@@ -60,9 +60,9 @@ def generate_exponential_tasks(rate, task_input_size, task_output_size, task_wor
 
 #vedi se tutto funziona secondo la nuova logca e ordine implementati in cloud e vehicle
 
-def create_vehicles_and_mobility(num_vehicles, city, city_bbox, max_simulation_time_ms, vehicle_cpu_capacity, vehicle_queue_capacity,vehicle_cpu_power, ue_power, energy_available, dollars_per_kwh):
+def create_vehicles_and_mobility(random_seed, num_vehicles, city, city_bbox, max_simulation_time_ms, vehicle_cpu_capacity, vehicle_queue_capacity,vehicle_cpu_power, ue_power, energy_available, dollars_per_kwh):
     max_simulation_time_seconds = convert.ms_to_seconds(max_simulation_time_ms)
-    output_dir, mobility_df = extract_city_traffic(city, "it", city_bbox, max_simulation_time_seconds, 0.1, num_vehicles)
+    output_dir, mobility_df = extract_city_traffic(random_seed, city, "it", city_bbox, max_simulation_time_seconds, 0.1, num_vehicles)
     if mobility_df is None or mobility_df.empty:
         raise RuntimeError(f"Nessun dato di traffico estratto da {output_dir}, None or Empty")
     # Ora è sicuro ordinare
@@ -115,16 +115,14 @@ def main(results_folder, task_input_size=TASK_INPUT_SIZE,
     cloud_id=CLOUD_ID):
 
     import random
-    import seeds
     import numpy as np
-    seeds.seed_random = seed_random
-    random.seed(seeds.seed_random)
-    np.random.seed(seeds.seed_random)
+    rng = random.Random(seed_random)
+    np.random.seed(seed_random)
 
     print("=== Avvio simulazione ===")
 
     print("=== Creazione veicoli e mobilità ===")
-    vehicles, mobility_df = create_vehicles_and_mobility(num_vehicles, city, city_bbox, max_simulation_time_ms,#
+    vehicles, mobility_df = create_vehicles_and_mobility(seed_random, num_vehicles, city, city_bbox, max_simulation_time_ms,#
                                vehicle_cpu_capacity, vehicle_queue_capacity, vehicle_cpu_power,
                                ue_tx_power, energy_available, price_kwh)
 
@@ -133,7 +131,7 @@ def main(results_folder, task_input_size=TASK_INPUT_SIZE,
                                 gnb_tx_power_inet, energy_available, price_kwh, ul_datarate=inet_dr, dl_datarate=inet_dr)
 
     controller = Controller(gnb_position_x=0, gnb_position_y=0)
-    tasks =  generate_exponential_tasks(task_rate, task_input_size, task_output_size, task_workload, users_number, max_simulation_time_ms, task_type_tuple, possible_task_types)
+    tasks =  generate_exponential_tasks(task_rate, task_input_size, task_output_size, task_workload, users_number, max_simulation_time_ms, task_type_tuple, possible_task_types, rng)
 
 
     last_v_beacon = {v.vehicle_id: -vehicle_beacon_interval_ms for v in vehicles}

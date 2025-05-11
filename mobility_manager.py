@@ -4,17 +4,13 @@ import xml.etree.ElementTree as ET
 import pandas as pd
 from pathlib import Path
 import urllib.request
-import seeds
-import random
 
-random_seed=seeds.seed_random
-random.seed(random_seed)
 
 #########################################
 # MANHATTAN GRID SIMULATION FUNCTIONS
 #########################################
 
-def fix_manhattan_simulation(num_vehicles=10, total_time=100, time_step=0.1,
+def fix_manhattan_simulation(random_seed, num_vehicles=10, total_time=100, time_step=0.1,
                            grid_number=5, grid_length=300):
     """
     Create a Manhattan grid simulation with correct edge IDs to avoid routing errors
@@ -54,7 +50,8 @@ def fix_manhattan_simulation(num_vehicles=10, total_time=100, time_step=0.1,
         f"--grid.number={grid_number}",
         f"--grid.length={grid_length}",
         "--no-turnarounds=true",
-        f"--output-file={net_file}"
+        f"--output-file={net_file}",
+        f"--seed={random_seed}"
     ]
 
     try:
@@ -109,7 +106,9 @@ def fix_manhattan_simulation(num_vehicles=10, total_time=100, time_step=0.1,
                 "--trip-files", str(trip_file),
                 "--net-file", str(net_file),
                 "--output-file", str(output_dir / "valid_route.rou.xml"),
-                "--ignore-errors"
+                "--ignore-errors",
+                f"--seed={random_seed}"
+
             ]
 
             try:
@@ -192,7 +191,7 @@ def fix_manhattan_simulation(num_vehicles=10, total_time=100, time_step=0.1,
         print(f"Error running simulation: {e}")
         return None, None
 
-def run_manhattan_simulation_and_get_dataframe(num_vehicles=50, total_time=100, time_step=1.0,
+def run_manhattan_simulation_and_get_dataframe(random_seed, num_vehicles=50, total_time=100, time_step=1.0,
                                              grid_number=5, grid_length=300):
     """
     Wrapper function to run a Manhattan simulation and return the trace DataFrame
@@ -215,7 +214,7 @@ def run_manhattan_simulation_and_get_dataframe(num_vehicles=50, total_time=100, 
     pandas.DataFrame
         DataFrame containing vehicle ID, x position, y position, speed, and time step
     """
-    output_path, df = fix_manhattan_simulation(
+    output_path, df = fix_manhattan_simulation(random_seed,
         num_vehicles=num_vehicles,
         total_time=total_time,
         time_step=time_step,
@@ -241,7 +240,7 @@ def run_manhattan_simulation_and_get_dataframe(num_vehicles=50, total_time=100, 
 # REAL-WORLD CITY TRAFFIC FUNCTIONS
 #########################################
 
-def extract_city_traffic(city_name, country_code, bbox=None, simulation_time=3600, time_step=1.0, num_vehicles=100):
+def extract_city_traffic(random_seed, city_name, country_code, bbox=None, simulation_time=3600, time_step=1.0, num_vehicles=100):
     """
     Extract traffic simulation from a real-world city using OpenStreetMap data
 
@@ -329,7 +328,9 @@ def extract_city_traffic(city_name, country_code, bbox=None, simulation_time=360
                 osmget_cmd = [
                     "osmget",
                     f"--bbox={bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]}",
-                    f"--output-file={osm_file}"
+                    f"--output-file={osm_file}",
+                    f"--seed={random_seed}"
+
                 ]
                 subprocess.run(osmget_cmd, check=True)
                 print(f"OSM data downloaded using osmget")
@@ -351,7 +352,9 @@ def extract_city_traffic(city_name, country_code, bbox=None, simulation_time=360
             "--tls.guess-signals",  # Guess traffic lights
             "--tls.discard-simple",  # Remove traffic lights at simple intersections
             "--edges.join",  # Join edges
-            "--remove-edges.isolated"  # Remove isolated edges
+            "--remove-edges.isolated",  # Remove isolated edges,
+            f"--seed={random_seed}"
+
         ]
 
         try:
@@ -369,7 +372,9 @@ def extract_city_traffic(city_name, country_code, bbox=None, simulation_time=360
             "--osm", str(osm_file),
             "--net", str(net_file),
             "--output-file", str(poly_file),
-            "--osm.keep-full-type"
+            "--osm.keep-full-type",
+            f"--seed={random_seed}"
+
         ]
 
         try:
