@@ -45,7 +45,7 @@ def _to_per_second_amount(monthly_amount):
 def to_task_payment(task_deadline, task_rate=TASK_RATE):
     task_type = _to_type_of_task(task_deadline)
     monthly_amount = PRICE_SUBSCRIPTIONS[task_type]
-    return _to_per_second_amount(monthly_amount) / task_rate
+    return _to_per_second_amount(monthly_amount)/2
 
 
 def dbm_to_watt(dbm):

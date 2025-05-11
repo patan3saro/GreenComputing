@@ -23,7 +23,7 @@ def get_users():
 
 # 3) Workload: 100M to 10_000M step 100M
 def get_workloads():
-    return [i * 100_000_000 for i in range(1, 101)]
+    return [i * 100000000 for i in range(1, 101)]
 
 # 4) Task-rates for scenario B
 def get_task_rates():
@@ -67,39 +67,39 @@ def generate_param_sets():
         sds.seed_random = seed
         sets.append({'scenario': 'A1', 'seed_random': seed,
                      'users_number': u,
-                     'task_workload': 100_000_000,
-                     'task_rate': 500})
+                     'task_workload': 100000000,
+                     'task_rate': 10})
     # A2) Varying workload, fixed users=50
     for seed, wl in product(seeds, workloads):
         sds.seed_random = seed
         sets.append({'scenario': 'A2', 'seed_random': seed,
-                     'users_number': 50,
+                     'users_number': 100,
                      'task_workload': wl,
-                     'task_rate': 50})
+                     'task_rate': 10})
 
     # B) Task-rate for users=50, workload=100M
     for seed, tr in product(seeds, task_rates):
         sds.seed_random = seed
         sets.append({'scenario': 'B', 'seed_random': seed,
-                     'users_number': 50,
-                     'task_workload': 100_000_000,
+                     'users_number': 100,
+                     'task_workload': 100000000,
                      'task_rate': tr})
 
     # C) Number of vehicles
     for seed, nv in product(seeds, vehicles):
         sets.append({'scenario': 'C', 'seed_random': seed,
-                     'users_number': 50,
-                     'task_workload': 100_000_000,
-                     'task_rate': 50,
+                     'users_number': 100,
+                     'task_workload': 100000000,
+                     'task_rate': 10,
                      'num_vehicles': nv})
 
     # D) Queue capacity
     for seed, qc in product(seeds, queue_caps):
         sds.seed_random = seed
         sets.append({'scenario': 'D', 'seed_random': seed,
-                     'users_number': 50,
-                     'task_workload': 100_000_000,
-                     'task_rate': 50,
+                     'users_number': 100,
+                     'task_workload': 100000000,
+                     'task_rate': 10,
                      'num_vehicles': 50,
                      'queue_capacity_vehicle': qc})
 
@@ -107,9 +107,9 @@ def generate_param_sets():
     for seed, wc, in product(seeds, windows):
         sds.seed_random = seed
         sets.append({'scenario': 'E', 'seed_random': seed,
-                     'users_number': 50,
-                     'task_workload': 100_000_000,
-                     'task_rate': 50,
+                     'users_number': 100,
+                     'task_workload': 100000000,
+                     'task_rate': 10,
                      'num_vehicles': 50,
                      'queue_capacity_vehicle': 5,
                      'window_task_collection': wc})
@@ -119,9 +119,9 @@ def generate_param_sets():
         sds.seed_random = seed
         capacity = cf * VEHICLE_CPU_CAPACITY_BASE
         sets.append({'scenario': 'F', 'seed_random': seed,
-                     'users_number': 50,
-                     'task_workload': 100_000_000,
-                     'task_rate': 50,
+                     'users_number': 100,
+                     'task_workload': 100000000,
+                     'task_rate': 10,
                      'num_vehicles': 50,
                      'queue_capacity_vehicle': 5,
                      'vehicle_cpu_capacity': capacity})

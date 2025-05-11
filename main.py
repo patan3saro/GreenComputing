@@ -223,7 +223,7 @@ def main(results_folder, task_input_size=TASK_INPUT_SIZE,
                 beacons = controller.beacons
                 if beacons:
                     assigned_nodes, tasks_per_node, task_assignments, total_utility_allocation, algo_overhead = optimize_task_allocation(beacons, filtered, task_rate)
-                    print(total_utility_allocation)
+
                     busy_nodes_id += [{'busy_id': int(t['node'][1]), 'time': math.ceil(convert.seconds_to_ms(t['details']['offloading_time']))}
                                       for t in task_assignments if int(t['node'][1]) >= 0]
 

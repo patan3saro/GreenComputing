@@ -1,11 +1,8 @@
 import numpy as np
 
-
-
 def dbm_to_mw(dbm):
     """Converte da dBm a milliwatt."""
     return 10 ** (dbm / 10)
-
 
 def mw_to_dbm(mw):
     """Converte da milliwatt a dBm."""
@@ -23,7 +20,7 @@ def set_all_vehicles_data_rate_5g_standard(
         vehicles,
         potenza_dl_dbm,
         avg_data_size=100000,
-        banda_tot_mhz=200,
+        banda_tot_mhz=400,
         freq_mhz=6000,
         num_stream=2,
         beamforming_gain_db=5,
