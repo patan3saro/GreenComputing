@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 import math
-
+import json
 from config import *
 from vehicle import Vehicle
 from cloud import Cloud
@@ -9,6 +9,24 @@ from controller import Controller
 from value_function import *
 from mobility_manager import extract_city_traffic
 from network_manager import *
+
+def simplify_real_info(info):
+    return {
+        "task_id": info["task"]["task"]["id"],
+        "node_id": info["node"][1],
+        "utility": float(info["utility"]),
+        "deadline_met": bool(info["other"]["deadline_met"])
+    }
+
+
+def simplify_assignment(assignment):
+    return {
+        "task": assignment["task"],
+        "node_id": assignment["node"][1],
+        "utility": float(assignment["utility"]),
+        "deadline_met": bool(assignment["details"]["deadline_met"])
+    }
+
 
 def is_node_busy(node_id, busy_nodes_id):
     return any(node['busy_id'] == node_id for node in busy_nodes_id)
@@ -226,13 +244,14 @@ def main(results_folder, task_input_size=TASK_INPUT_SIZE,
                                       for t in task_assignments if int(t['node'][1]) >= 0]
 
                     # nome ricco di info
-                    alloc_filename = (
-                            f"allocations.txt"
-                    )
-                    alloc_path = os.path.join(results_folder, alloc_filename)
+                    assignments_serializable = [simplify_assignment(t) for t in task_assignments]
 
-                    with open(alloc_path, 'w') as f:
-                        f.write(f"{current_time_sec}\t{task_assignments}\n")
+                    alloc_path = os.path.join(results_folder, "allocations.txt")
+                    with open(alloc_path, 'a') as f:
+                        f.write(json.dumps({
+                            "timestamp": current_time_sec,
+                            "assignments": assignments_serializable
+                        }) + "\n")
 
                     task_allocation_count += 1
                     total_tasks_processed += sum(1 for t in task_assignments if t is not None)
@@ -241,12 +260,15 @@ def main(results_folder, task_input_size=TASK_INPUT_SIZE,
                     real_beacons = controller.real_beacons
                     tot_utility_real, infos = real_value_function(real_beacons, task_assignments, algo_overhead, task_rate)
 
-                    real_fn = (
-                            f"realization.txt"
-                            )
+                    infos_serializable = [simplify_real_info(i) for i in infos]
 
-                    with open(os.path.join(results_folder, real_fn), 'w') as f:
-                             f.write(f"{current_time_sec}\t{tot_utility_real}\n{infos}\n")
+                    real_path = os.path.join(results_folder, "realization.txt")
+                    with open(real_path, 'a') as f:
+                        f.write(json.dumps({
+                            "timestamp": current_time_sec,
+                            "real_total_utility": tot_utility_real,
+                            "details": infos_serializable
+                        }) + "\n")
 
                 busy_nodes_id = [n for n in busy_nodes_id if n['time'] > 1]
                 for n in busy_nodes_id: n['time'] -= 1
@@ -257,13 +279,11 @@ def main(results_folder, task_input_size=TASK_INPUT_SIZE,
     print(f"Tempo totale: {max_simulation_time_ms} ms | Task generati: {count_all_tasks} | Processati: {total_tasks_processed} | Utilit\u00e0: {total_utility}")
 
     beacon_df.to_csv(
-        os.path.join(
-        results_folder,
-        f"beacons.csv"
-        ),
-        index = False
-        )
-      # nuovo filename con parametri
+        os.path.join(results_folder, "beacons.csv"),
+        mode='w', index=False
+    )
+
+    # nuovo filename con parametri
     tasks_fn = (
         f"tasks.csv"
         )
