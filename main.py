@@ -250,44 +250,38 @@ def main(results_folder, task_input_size=TASK_INPUT_SIZE,
                     with open(alloc_path, 'a') as f:
                         f.write(json.dumps({
                             "timestamp": current_time_sec,
-                            "assignments": assignments_serializable
-                        }) + "\n")
+                            "assignments": task_assignments  # <-- tutto l'oggetto completo
+                        }, default=str) + "\n")
 
                     task_allocation_count += 1
                     total_tasks_processed += sum(1 for t in task_assignments if t is not None)
                     total_utility += total_utility_allocation
 
                     real_beacons = controller.real_beacons
-                    tot_utility_real, infos = real_value_function(real_beacons, task_assignments, algo_overhead, task_rate)
-
-                    infos_serializable = [simplify_real_info(i) for i in infos]
+                    tot_utility_real, infos = real_value_function(real_beacons, task_assignments, algo_overhead,
+                                                                  task_rate)
 
                     real_path = os.path.join(results_folder, "realization.txt")
                     with open(real_path, 'a') as f:
                         f.write(json.dumps({
                             "timestamp": current_time_sec,
                             "real_total_utility": tot_utility_real,
-                            "details": infos_serializable
-                        }) + "\n")
+                            "details": infos  # <-- dettagli completi
+                        }, default=str) + "\n")
 
                 busy_nodes_id = [n for n in busy_nodes_id if n['time'] > 1]
                 for n in busy_nodes_id: n['time'] -= 1
 
         current_time_ms += time_step_ms
 
+    # Salvataggi finali già presenti
     print("\n=== Simulazione completata ===")
-    print(f"Tempo totale: {max_simulation_time_ms} ms | Task generati: {count_all_tasks} | Processati: {total_tasks_processed} | Utilit\u00e0: {total_utility}")
+    print(f"Tempo totale: {max_simulation_time_ms} ms | Task generati: {count_all_tasks} | Processati: {total_tasks_processed} | Utilità: {total_utility}")
 
-    beacon_df.to_csv(
-        os.path.join(results_folder, "beacons.csv"),
-        mode='w', index=False
-    )
+    beacon_df.to_csv(os.path.join(results_folder, "beacons.csv"), mode='w', index=False)
+    beacon_df_real.to_csv(os.path.join(results_folder, "beacons_real.csv"), mode='w', index=False)
 
-    # nuovo filename con parametri
-    tasks_fn = (
-        f"tasks.csv"
-        )
-    tasks_path = os.path.join(results_folder, tasks_fn)
+    tasks_path = os.path.join(results_folder, "tasks.csv")
     tasks_df.to_csv(tasks_path, index=False)
 
 if __name__ == "__main__":
