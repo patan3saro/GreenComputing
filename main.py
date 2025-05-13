@@ -10,6 +10,7 @@ from value_function import *
 from mobility_manager import extract_city_traffic
 from network_manager import *
 
+
 def simplify_real_info(info):
     return {
         "task_id": info["task"]["task"]["id"],
@@ -189,7 +190,9 @@ def main(results_folder, task_input_size=TASK_INPUT_SIZE,
         vehicles_with_mobility = vehicles
 
         #assign datarates to vehicles
-        vehicles_with_datarates = set_all_vehicles_data_rate_5g_standard(vehicles_with_mobility, potenza_dl_dbm=gnb_tx_power_5g)
+        active_vehicles = [v for v in vehicles_with_mobility if not is_node_busy(v.vehicle_id, busy_nodes_id)]
+        vehicles_with_datarates = set_all_vehicles_data_rate_5g_standard(active_vehicles,
+                                                                         potenza_dl_dbm=gnb_tx_power_5g)
         for v in vehicles_with_datarates:
 
             if current_time_ms - last_v_beacon[v.vehicle_id] >= vehicle_beacon_interval_ms and not is_node_busy(v.vehicle_id,

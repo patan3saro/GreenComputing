@@ -62,6 +62,21 @@ def parse_real_times(file_path, metric="offloading_time"):
         return []
     return values
 
+def parse_total_utilities(file_path):
+    values = []
+    try:
+        with open(file_path) as f:
+            for line in f:
+                try:
+                    data = json.loads(line)
+                    total = sum(a.get("details", {}).get("utility", 0) for a in data.get("assignments", []))
+                    values.append(total)
+                except json.JSONDecodeError:
+                    continue
+    except FileNotFoundError:
+        return []
+    return values
+
 def analyze_parameter(base_dir, parameter, metric="offloading_time"):
     param_path = os.path.join(base_dir, parameter)
     results = []
@@ -95,8 +110,12 @@ def analyze_parameter(base_dir, parameter, metric="offloading_time"):
             alloc_file = os.path.join(seed_path, "allocations.txt")
             real_file = os.path.join(seed_path, "realization.txt")
 
-            alloc_times = parse_alloc_times(alloc_file, metric)
-            real_times = parse_real_times(real_file, metric)
+            if metric == "vs_utility":
+                alloc_times = parse_total_utilities(alloc_file)
+                real_times = []
+            else:
+                alloc_times = parse_alloc_times(alloc_file, metric)
+                real_times = parse_real_times(real_file, metric)
 
             if alloc_times:
                 alloc_means.append(np.mean(alloc_times))
@@ -130,8 +149,16 @@ def analyze_parameter(base_dir, parameter, metric="offloading_time"):
 
 def plot_results(df, parameter, metric, output_dir):
     df = df.dropna(subset=["alloc_mean", "real_mean"], how='all')
-    ylabel = "Average Energy Consumption (J)" if metric == "energy" else "Average Offloading Time (s)"
-    title_metric = "Energy Consumption" if metric == "energy" else "Offloading Time"
+
+    if metric == "energy":
+        ylabel = "Average Energy Consumption (J)"
+        title_metric = "Energy Consumption"
+    elif metric == "vs_utility":
+        ylabel = "v(S)"
+        title_metric = "Total Utility"
+    else:
+        ylabel = "Average Offloading Time (s)"
+        title_metric = "Offloading Time"
 
     plt.figure(figsize=(10, 6))
     if df["alloc_mean"].notna().any():
@@ -174,8 +201,16 @@ def plot_bar_comparison(df, parameter, metric, output_dir):
     df = df.dropna(subset=["alloc_mean", "real_mean"], how='all')
     bar_width = 0.35
     indices = np.arange(len(df))
-    ylabel = "Average Energy Consumption (J)" if metric == "energy" else "Average Offloading Time (s)"
-    title_metric = "Energy Consumption" if metric == "energy" else "Offloading Time"
+
+    if metric == "energy":
+        ylabel = "Average Energy Consumption (J)"
+        title_metric = "Energy Consumption"
+    elif metric == "vs_utility":
+        ylabel = "v(S)"
+        title_metric = "Total Utility"
+    else:
+        ylabel = "Average Offloading Time (s)"
+        title_metric = "Offloading Time"
 
     def bar_plot(log=False):
         fig, ax = plt.subplots(figsize=(10, 6))
@@ -213,12 +248,15 @@ if __name__ == "__main__":
     print("Seleziona la metrica da analizzare:")
     print("1. Tempo di offloading")
     print("2. Consumo energetico")
-    scelta = input("Inserisci 1 o 2: ").strip()
+    print("3. Utility Totale v(S)")
+    scelta = input("Inserisci 1, 2 o 3: ").strip()
 
     if scelta == "1":
         metric = "offloading_time"
     elif scelta == "2":
         metric = "energy"
+    elif scelta == "3":
+        metric = "vs_utility"
     else:
         print("[ERRORE] Scelta non valida. Uscita.")
         exit(1)

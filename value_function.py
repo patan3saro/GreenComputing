@@ -2,6 +2,7 @@ import pulp
 import utils_for_covertions as convert
 import utils_computing as compute
 from config import NO_ENERGY_PRICE, VERBOSE
+from collections import defaultdict
 
 def verbose_print(*args, **kwargs):
     if VERBOSE:
@@ -75,25 +76,70 @@ def _calculate_utility_nodes(beacon, task, algorithm_overhead, task_rate):
     return utility, energy_NO, detailed_info
 
 def real_value_function(real_beacons, task_assignments, algorithm_overhead, task_rate, verbose=False):
-        tot_utility = 0
-        infos = []
-        verbose_print(f"Calcolo della funzione di valore reale per {len(task_assignments)} assegnazioni...")
-        for t in task_assignments:
-            for b in real_beacons:
-                if int(b[1]) == int(t['node'][1]):
-                    task = t['task']
-                    utility, _, detailed_info = _calculate_utility_nodes(b, task, algorithm_overhead, task_rate)
-                    verbose_print(f"Task {task.get('id', 'unknown')}, Node {b[1]}: Utilità reale = {utility}")
-                    tot_utility += utility + detailed_info['energy_NO_cost']
-                    details = {
-                        'task': t,
-                        'node': b,
-                        'utility': utility,
-                        'other': detailed_info
-                    }
-                    infos.append(details)
-        verbose_print(f"Utilità totale reale calcolata: {tot_utility}")
-        return tot_utility, infos
+    from collections import defaultdict
+
+    tot_utility = 0
+    infos = []
+    data_usage_ul = defaultdict(int)
+    data_usage_dl = defaultdict(int)
+
+    # Calcolo del traffico totale per ciascun nodo
+    for t in task_assignments:
+        node_id = int(t['node'][1])
+        task = t['task']
+        data_usage_ul[node_id] += task["I"]
+        data_usage_dl[node_id] += task["O"]
+
+    if verbose:
+        verbose_print(f"[REAL] Calcolo della funzione di valore reale per {len(task_assignments)} assegnazioni...")
+
+    # Per ciascun task, rivaluta la feasibility con datarate reale
+    for t in task_assignments:
+        task = t['task']
+        node_id = int(t['node'][1])
+
+        matched_beacons = [b for b in real_beacons if int(b[1]) == node_id]
+        if not matched_beacons:
+            continue  # Nodo non attivo, task irrealizzabile
+
+        beacon = list(matched_beacons[0])  # converti tupla in lista
+        beacon_data = beacon[2]
+
+        # Calcolo datarate realistico basato sui bit assegnati al nodo
+        interval_s = 0.1  # finestra di 100ms
+        if data_usage_ul[node_id] > 0:
+            beacon_data['ul_datarate'] = data_usage_ul[node_id] / interval_s
+        if data_usage_dl[node_id] > 0:
+            beacon_data['dl_datarate'] = data_usage_dl[node_id] / interval_s
+
+        # Ricalcolo tempi e verifica deadline
+        try:
+            utility, _, detailed_info = _calculate_utility_nodes(beacon, task, algorithm_overhead, task_rate)
+        except Exception:
+            continue  # Skip task in caso di errore
+
+        if not detailed_info['deadline_met']:
+            if verbose:
+                verbose_print(f"[REAL] Task {task.get('id')} PERSO: deadline violata nella realtà")
+            continue  # Task perso: scartato
+
+        # Task valido: aggiungi alla somma
+        tot_utility += utility + detailed_info['energy_NO_cost']
+        infos.append({
+            'task': t,
+            'node': beacon,
+            'utility': utility,
+            'other': detailed_info
+        })
+
+        if verbose:
+            verbose_print(f"[REAL] Task {task.get('id')} → Utilità = {utility:.2e}")
+
+    if verbose:
+        verbose_print(f"[REAL] Utilità totale reale calcolata: {tot_utility:.2e}")
+
+    return tot_utility, infos
+
 
 
 def optimize_task_allocation(beacons, tasks, task_rate, verbose=None):

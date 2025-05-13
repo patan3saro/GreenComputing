@@ -54,6 +54,9 @@ def run_all():
                 if param == 'vehicle_cpu_capacity':
                     config[param] = val * BASE_CPU
 
+                if param == 'window_task_collection':
+                    config['max_simulation_time_ms'] = val * 10 + 200
+
                 folder = os.path.join(base_folder, param, f"val_{str(val).replace('.', '_')}", f"seed_{seed}")
                 os.makedirs(folder, exist_ok=True)
 
