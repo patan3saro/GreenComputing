@@ -9,6 +9,7 @@ from controller import Controller
 from value_function import *
 from mobility_manager import extract_city_traffic
 from network_manager import *
+from collections import defaultdict
 
 
 def simplify_real_info(info):
@@ -191,12 +192,29 @@ def main(results_folder, task_input_size=TASK_INPUT_SIZE,
 
         #assign datarates to vehicles
         active_vehicles = [v for v in vehicles_with_mobility if not is_node_busy(v.vehicle_id, busy_nodes_id)]
-        vehicles_with_datarates = set_all_vehicles_data_rate_5g_standard(active_vehicles,
-                                                                         potenza_dl_dbm=gnb_tx_power_5g)
-        for v in vehicles_with_datarates:
+        # Calcolo datarate iniziale con x% attivi solo nel primo step
+        if current_time_ms == start_time:
+            vehicles_with_datarates = set_all_vehicles_data_rate_5g_standard(
+                active_vehicles,
+                potenza_dl_dbm=gnb_tx_power_5g,
+                active_ratio=0.7  # <-- x% attivi all'inizio
+            )
+        else:
+            vehicles_with_datarates = set_all_vehicles_data_rate_5g_standard(
+                active_vehicles,
+                potenza_dl_dbm=gnb_tx_power_5g,
+                active_ratio=1.0  # <-- tutti potenzialmente attivi nei passi successivi
+            )
 
-            if current_time_ms - last_v_beacon[v.vehicle_id] >= vehicle_beacon_interval_ms and not is_node_busy(v.vehicle_id,
-                                                                                                        busy_nodes_id):
+        # Beacon asincroni: ogni veicolo ha offset sfasato nel tempo
+        for v in vehicles_with_datarates:
+            if current_time_ms - last_v_beacon[v.vehicle_id] >= vehicle_beacon_interval_ms and not is_node_busy(
+                    v.vehicle_id, busy_nodes_id):
+                # Invia beacon con ritardo sfasato (offset = vehicle_id % 100 ms)
+                offset = v.vehicle_id % 100
+                if current_time_ms % vehicle_beacon_interval_ms != offset:
+                    continue
+
                 beacon = v.create_beacon(current_time_sec, randomize=False)
                 beacon_real = v.create_beacon(current_time_sec, randomize=True)
                 dwell, dist = compute.calculate_dwell_time_and_distance(v.position_x, v.position_y, v.speed)
@@ -243,6 +261,33 @@ def main(results_folder, task_input_size=TASK_INPUT_SIZE,
                 if beacons:
                     assigned_nodes, tasks_per_node, task_assignments, total_utility_allocation, algo_overhead = optimize_task_allocation(beacons, filtered, task_rate)
 
+
+                    traffic_map = defaultdict(lambda: {'I': 0, 'O': 0})
+                    for t in task_assignments:
+                        nid = int(t['node'][1])
+                        traffic_map[nid]['I'] += t['task']['I']
+                        traffic_map[nid]['O'] += t['task']['O']
+
+                    # Aggiorna datarate in beacon con traffico reale
+                    for b in controller.beacons:
+                        nid = int(b[1])
+                        if nid in traffic_map:
+                            b[2]['ul_datarate'] = traffic_map[nid]['I'] / 0.1  # 100ms
+                            b[2]['dl_datarate'] = traffic_map[nid]['O'] / 0.1
+
+                    # Traccia log per ogni nodo
+                    log_path = os.path.join(results_folder, "datarate_debug.jsonl")
+                    with open(log_path, "a") as log_file:
+                        for nid, traffic in traffic_map.items():
+                            log_file.write(json.dumps({
+                                "timestamp": current_time_sec,
+                                "node_id": nid,
+                                "traffic_I": traffic['I'],
+                                "traffic_O": traffic['O'],
+                                "ul_datarate": traffic['I'] / 0.1,
+                                "dl_datarate": traffic['O'] / 0.1
+                            }) + "\n")
+
                     busy_nodes_id += [{'busy_id': int(t['node'][1]), 'time': math.ceil(convert.seconds_to_ms(t['details']['offloading_time']))}
                                       for t in task_assignments if int(t['node'][1]) >= 0]
 
@@ -263,6 +308,24 @@ def main(results_folder, task_input_size=TASK_INPUT_SIZE,
                     real_beacons = controller.real_beacons
                     tot_utility_real, infos = real_value_function(real_beacons, task_assignments, algo_overhead,
                                                                   task_rate)
+
+                    # Traccia task persi (deadline non rispettata)
+                    lost_tasks = [
+                        {
+                            "timestamp": current_time_sec,
+                            "task_id": t['task']['id'],
+                            "node_id": int(t['node'][1]),
+                            "deadline": t['task']['D']
+                        }
+                        for t in task_assignments
+                        if not any(info['task']['task']['id'] == t['task']['id'] for info in infos)
+                    ]
+
+                    if lost_tasks:
+                        lost_path = os.path.join(results_folder, "lost_tasks.jsonl")
+                        with open(lost_path, "a") as f_lost:
+                            for lost in lost_tasks:
+                                f_lost.write(json.dumps(lost) + "\n")
 
                     real_path = os.path.join(results_folder, "realization.txt")
                     with open(real_path, 'a') as f:

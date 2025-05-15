@@ -16,6 +16,8 @@ def path_loss_db(d_km, freq_mhz):
     return 32.4 + 20 * np.log10(freq_mhz) + 30 * np.log10(d_km)
 
 
+import json
+
 def set_all_vehicles_data_rate_5g_standard(
         vehicles,
         potenza_dl_dbm,
@@ -25,41 +27,35 @@ def set_all_vehicles_data_rate_5g_standard(
         num_stream=2,
         beamforming_gain_db=5,
         efficienza=0.85,
-        sinr_min_db=-5
+        sinr_min_db=-5,
+        active_ratio=1.0  # <-- aggiunto per stimare quanti nodi trasmettono
 ):
     risultati = []
     if not vehicles:
         return risultati
 
-    # === Step 1: stimiamo un peso di traffico per ciascun veicolo ===
     DEFAULT_TRAFFIC = 160000  # bit (I + O attesi)
     vehicle_weights = {v.vehicle_id: DEFAULT_TRAFFIC for v in vehicles}
     total_weight = sum(vehicle_weights.values())
     banda_totale_Hz = banda_tot_mhz * 1e6
 
-    # === Step 2: rumore ===
-    n_eff = len(vehicles)
-    noise_dbm = -174 + 10 * np.log10(banda_totale_Hz / max(1, n_eff))
+    n_eff = max(1, int(len(vehicles) * active_ratio))
+    noise_dbm = -174 + 10 * np.log10(banda_totale_Hz / n_eff)
     noise_mw = dbm_to_mw(noise_dbm)
 
-    # === Step 3: per veicolo attivo, calcolo datarate ===
     for i, v in enumerate(vehicles):
         distanza_m = np.linalg.norm(np.array([v.position_x, v.position_y]) - [0, 0])
         d_km = max(distanza_m / 1000, 0.01)
 
-        # === Banda pesata ===
         weight = vehicle_weights.get(v.vehicle_id, DEFAULT_TRAFFIC)
         banda_Hz = (weight / total_weight) * banda_totale_Hz
 
-        # === Path loss, fading, shadowing ===
         shadowing_dB = np.random.normal(0, 4)
         fading_dB = 20 * np.log10(np.random.rayleigh(1.0))
         PL = path_loss_db(d_km, freq_mhz) - shadowing_dB - fading_dB
 
-        # === Uplink ===
         p_rx_ul_dbm = v.ue_power - PL + beamforming_gain_db
         p_rx_ul_mw = dbm_to_mw(p_rx_ul_dbm)
-
         interferenza_ul = sum(
             dbm_to_mw(vk.ue_power - path_loss_db(max(np.linalg.norm(np.array([vk.position_x, vk.position_y]) - [0, 0]) / 1000, 0.01), freq_mhz))
             for j, vk in enumerate(vehicles) if j != i
@@ -68,7 +64,6 @@ def set_all_vehicles_data_rate_5g_standard(
         sinr_ul = p_rx_ul_mw / (interferenza_ul + noise_mw)
         sinr_ul_db = 10 * np.log10(sinr_ul)
 
-        # === Downlink ===
         p_rx_dl_dbm = potenza_dl_dbm - PL + beamforming_gain_db
         p_rx_dl_mw = dbm_to_mw(p_rx_dl_dbm)
         interferenza_dl = (n_eff - 1) * p_rx_dl_mw * 0.1
@@ -79,7 +74,6 @@ def set_all_vehicles_data_rate_5g_standard(
         if sinr_ul_db < sinr_min_db or sinr_dl_db < sinr_min_db:
             continue
 
-        # === Throughput ===
         rate_ul = efficienza * banda_Hz * np.log2(1 + sinr_ul) * num_stream
         rate_dl = efficienza * banda_Hz * np.log2(1 + sinr_dl) * num_stream
 
@@ -87,4 +81,5 @@ def set_all_vehicles_data_rate_5g_standard(
         risultati.append(v)
 
     return risultati
+
 

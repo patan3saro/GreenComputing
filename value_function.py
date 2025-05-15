@@ -80,50 +80,34 @@ def real_value_function(real_beacons, task_assignments, algorithm_overhead, task
 
     tot_utility = 0
     infos = []
-    data_usage_ul = defaultdict(int)
-    data_usage_dl = defaultdict(int)
-
-    # Calcolo del traffico totale per ciascun nodo
-    for t in task_assignments:
-        node_id = int(t['node'][1])
-        task = t['task']
-        data_usage_ul[node_id] += task["I"]
-        data_usage_dl[node_id] += task["O"]
 
     if verbose:
         verbose_print(f"[REAL] Calcolo della funzione di valore reale per {len(task_assignments)} assegnazioni...")
 
-    # Per ciascun task, rivaluta la feasibility con datarate reale
     for t in task_assignments:
         task = t['task']
         node_id = int(t['node'][1])
 
+        # Cerca il beacon reale corrispondente
         matched_beacons = [b for b in real_beacons if int(b[1]) == node_id]
         if not matched_beacons:
-            continue  # Nodo non attivo, task irrealizzabile
+            continue  # Nodo non attivo → task fallito
 
-        beacon = list(matched_beacons[0])  # converti tupla in lista
+        beacon = list(matched_beacons[0])  # tupla → lista (mutabile)
         beacon_data = beacon[2]
 
-        # Calcolo datarate realistico basato sui bit assegnati al nodo
-        interval_s = 0.1  # finestra di 100ms
-        if data_usage_ul[node_id] > 0:
-            beacon_data['ul_datarate'] = data_usage_ul[node_id] / interval_s
-        if data_usage_dl[node_id] > 0:
-            beacon_data['dl_datarate'] = data_usage_dl[node_id] / interval_s
+        # Lascia la datarate reale intatta — NON modificarla artificialmente
 
-        # Ricalcolo tempi e verifica deadline
         try:
             utility, _, detailed_info = _calculate_utility_nodes(beacon, task, algorithm_overhead, task_rate)
         except Exception:
-            continue  # Skip task in caso di errore
+            continue  # Skip in caso di errore
 
         if not detailed_info['deadline_met']:
             if verbose:
                 verbose_print(f"[REAL] Task {task.get('id')} PERSO: deadline violata nella realtà")
-            continue  # Task perso: scartato
+            continue
 
-        # Task valido: aggiungi alla somma
         tot_utility += utility + detailed_info['energy_NO_cost']
         infos.append({
             'task': t,

@@ -9,18 +9,19 @@ import shutil
 
 def setup_figure_dirs(metric):
     base_dir = "figures"
-    if os.path.exists(base_dir):
-        shutil.rmtree(base_dir)
-    os.makedirs(base_dir)
+    os.makedirs(base_dir, exist_ok=True)
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    date_dir = os.path.join(base_dir, timestamp)
-    os.makedirs(date_dir)
+    date_str = datetime.now().strftime("%Y%m%d")
+    date_dir = os.path.join(base_dir, date_str)
+    os.makedirs(date_dir, exist_ok=True)
 
     metric_dir = os.path.join(date_dir, metric)
+    if os.path.exists(metric_dir):
+        shutil.rmtree(metric_dir)  # Cancella solo la sottocartella della metrica
     os.makedirs(metric_dir)
 
     return metric_dir
+
 
 def parse_alloc_times(file_path, metric="offloading_time"):
     values = []
@@ -242,46 +243,223 @@ def plot_bar_comparison(df, parameter, metric, output_dir):
     bar_plot(log=False)
     bar_plot(log=True)
 
+def parse_success_rates(alloc_path, real_path):
+    try:
+        with open(alloc_path) as f_alloc, open(real_path) as f_real:
+            alloc_lines = f_alloc.readlines()
+            real_lines = f_real.readlines()
+            alloc_counts = [len(json.loads(line).get("assignments", [])) for line in alloc_lines]
+            real_counts = [len(json.loads(line).get("details", [])) for line in real_lines]
+            return [r / a if a > 0 else 0 for r, a in zip(real_counts, alloc_counts)]
+    except:
+        return []
+
+def analyze_realization_rates(base_dir):
+    results = []
+    for param in sorted(os.listdir(base_dir)):
+        param_path = os.path.join(base_dir, param)
+        if not os.path.isdir(param_path):
+            continue
+        for val in sorted(os.listdir(param_path)):
+            val_path = os.path.join(param_path, val)
+            try:
+                val_f = float(val.replace("val_", "").replace("_", "."))
+            except:
+                continue
+            rates = []
+            for seed in os.listdir(val_path):
+                seed_path = os.path.join(val_path, seed)
+                alloc = os.path.join(seed_path, "allocations.txt")
+                real = os.path.join(seed_path, "realization.txt")
+                rates.extend(parse_success_rates(alloc, real))
+            if rates:
+                mean = np.mean(rates)
+                ci = stats.t.interval(0.95, len(rates)-1, loc=mean, scale=stats.sem(rates)) if len(rates) > 1 else (None, None)
+                results.append({
+                    "parameter": param,
+                    "value": val_f,
+                    "realization_mean": mean,
+                    "realization_ci_low": ci[0],
+                    "realization_ci_high": ci[1],
+                    "failure_mean": 1 - mean,
+                    "failure_ci_low": 1 - ci[1] if ci[1] else None,
+                    "failure_ci_high": 1 - ci[0] if ci[0] else None,
+                })
+    return pd.DataFrame(results)
+
+def plot_realization_failure(df, output_dir):
+    os.makedirs(output_dir, exist_ok=True)
+    for param, group in df.groupby("parameter"):
+        group = group.sort_values("value")
+        x = np.arange(len(group))
+        width = 0.5
+
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.bar(x, group["realization_mean"], width, label="Realized", color="green",
+               yerr=[group["realization_mean"] - group["realization_ci_low"],
+                     group["realization_ci_high"] - group["realization_mean"]], capsize=5)
+        ax.bar(x, group["failure_mean"], width, bottom=group["realization_mean"], label="Failed", color="red",
+               yerr=[group["failure_mean"] - group["failure_ci_low"],
+                     group["failure_ci_high"] - group["failure_mean"]], capsize=5)
+        ax.set_xticks(x)
+        ax.set_xticklabels([str(v) for v in group["value"]])
+        ax.set_xlabel(param)
+        ax.set_ylabel("Task Percentages")
+        ax.set_title(f"Task Realization vs Failure - {param}")
+        ax.legend()
+        ax.grid(True)
+        fig.tight_layout()
+        plt.savefig(os.path.join(output_dir, f"failures_vs_{param}.png"))
+        plt.close()
+
+
+import os
+import json
+import numpy as np
+import pandas as pd
+from scipy import stats
+import matplotlib.pyplot as plt
+from datetime import datetime
+import shutil
+
+def setup_figure_dirs(metric):
+    base_dir = "figures"
+    os.makedirs(base_dir, exist_ok=True)
+    date_str = datetime.now().strftime("%Y%m%d")
+    date_dir = os.path.join(base_dir, date_str)
+    os.makedirs(date_dir, exist_ok=True)
+    metric_dir = os.path.join(date_dir, metric)
+    if os.path.exists(metric_dir):
+        shutil.rmtree(metric_dir)
+    os.makedirs(metric_dir)
+    return metric_dir
+
+def analyze_failure_components(base_dir):
+    results = []
+    for param in sorted(os.listdir(base_dir)):
+        param_path = os.path.join(base_dir, param)
+        if not os.path.isdir(param_path):
+            continue
+        for val_folder in sorted(os.listdir(param_path)):
+            val_path = os.path.join(param_path, val_folder)
+            try:
+                val_f = float(val_folder.replace("val_", "").replace("_", "."))
+            except:
+                continue
+            failed_all = []
+            failed_alloc = []
+            not_allocated = []
+            for seed_folder in os.listdir(val_path):
+                seed_path = os.path.join(val_path, seed_folder)
+                if not os.path.isdir(seed_path):
+                    continue
+                try:
+                    tasks_df = pd.read_csv(os.path.join(seed_path, "tasks.csv"))
+                    with open(os.path.join(seed_path, "allocations.txt")) as f:
+                        alloc_ids = {a["task"]["id"] for line in f for a in json.loads(line).get("assignments", [])}
+                    with open(os.path.join(seed_path, "realization.txt")) as f:
+                        real_ids = {d["task"]["task"]["id"] for line in f for d in json.loads(line).get("details", [])}
+                    all_ids = set(tasks_df["id"])
+                    failed = all_ids - real_ids
+                    alloc_failed = alloc_ids - real_ids
+                    not_alloc = all_ids - alloc_ids
+                    failed_all.append(len(failed))
+                    failed_alloc.append(len(alloc_failed))
+                    not_allocated.append(len(not_alloc))
+                except:
+                    continue
+            if failed_all:
+                results.append({
+                    "parameter": param,
+                    "value": val_f,
+                    "failed_total_mean": np.mean(failed_all),
+                    "failed_total_ci": stats.sem(failed_all) * stats.t.ppf(0.975, len(failed_all)-1) if len(failed_all) > 1 else 0,
+                    "failed_alloc_mean": np.mean(failed_alloc),
+                    "not_allocated_mean": np.mean(not_allocated)
+                })
+    return pd.DataFrame(results)
+
+def plot_failure_composition(df, output_dir):
+    os.makedirs(output_dir, exist_ok=True)
+    for param, group in df.groupby("parameter"):
+        group = group.sort_values("value")
+        x = np.arange(len(group))
+        width = 0.3
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.bar(x - width / 2, group["not_allocated_mean"], width, label="Not Allocated", color="gray")
+        ax.bar(x - width / 2, group["failed_alloc_mean"], width, bottom=group["not_allocated_mean"], label="Allocated but Failed", color="orange")
+        ax.bar(x + width / 2, group["failed_total_mean"], width, label="Total Failures", edgecolor="black", fill=False, hatch="///", alpha=0.7)
+        ax.set_xticks(x)
+        ax.set_xticklabels([str(v) for v in group["value"]])
+        ax.set_xlabel(param)
+        ax.set_ylabel("Avg Number of Tasks")
+        ax.set_title(f"Failure Composition - {param}")
+        ax.legend()
+        ax.grid(True)
+        fig.tight_layout()
+        out_path = os.path.join(output_dir, f"failure_composition_{param}.png")
+        plt.savefig(out_path)
+        print(f"[INFO] Grafico salvato: {out_path}")
+        plt.close()
+
+
 if __name__ == "__main__":
     root = "results_simplified"
-
     print("Seleziona la metrica da analizzare:")
     print("1. Tempo di offloading")
     print("2. Consumo energetico")
     print("3. Utility Totale v(S)")
-    scelta = input("Inserisci 1, 2 o 3: ").strip()
+    print("4. Composizione dei Task Falliti")
+    scelta = input("Inserisci 1, 2, 3 o 4: ").strip()
 
-    if scelta == "1":
-        metric = "offloading_time"
-    elif scelta == "2":
-        metric = "energy"
-    elif scelta == "3":
-        metric = "vs_utility"
+    if scelta == "4":
+        metric = "failure_composition"
+        all_dates = [d for d in os.listdir(root) if os.path.isdir(os.path.join(root, d))]
+        if not all_dates:
+            print("[FATAL] Nessuna cartella trovata in results_simplified/")
+            exit(1)
+        latest = sorted(all_dates, reverse=True)[0]
+        base_dir = os.path.join(root, latest)
+        output_dir = setup_figure_dirs(metric)
+        df = analyze_failure_components(base_dir)
+        if not df.empty:
+            df.to_csv(os.path.join(output_dir, "failure_composition_summary.csv"), index=False)
+            plot_failure_composition(df, output_dir)
+            print(f"[INFO] CSV e grafici salvati in {output_dir}")
+        else:
+            print("[WARN] Nessun dato disponibile.")
+    elif scelta in {"1", "2", "3"}:
+        if scelta == "1":
+            metric = "offloading_time"
+        elif scelta == "2":
+            metric = "energy"
+        elif scelta == "3":
+            metric = "vs_utility"
+
+        all_dates = [d for d in os.listdir(root) if os.path.isdir(os.path.join(root, d))]
+        if not all_dates:
+            print("[FATAL] Nessuna cartella trovata in results_simplified/")
+            exit(1)
+
+        latest = sorted(all_dates, reverse=True)[0]
+        base_dir = os.path.join(root, latest)
+        output_dir = setup_figure_dirs(metric)
+
+        for parameter in sorted(os.listdir(base_dir)):
+            param_path = os.path.join(base_dir, parameter)
+            if not os.path.isdir(param_path):
+                continue
+
+            df = analyze_parameter(base_dir, parameter, metric=metric)
+            print(df)
+
+            if not df.empty:
+                csv_file = os.path.join(output_dir, f"{metric}_{parameter}.csv")
+                df.to_csv(csv_file, index=False)
+                print(f"[INFO] CSV salvato: {csv_file}")
+                plot_results(df, parameter, metric=metric, output_dir=output_dir)
+                plot_bar_comparison(df, parameter, metric=metric, output_dir=output_dir)
     else:
         print("[ERRORE] Scelta non valida. Uscita.")
         exit(1)
 
-    all_dates = [d for d in os.listdir(root) if os.path.isdir(os.path.join(root, d))]
-    if not all_dates:
-        print("[FATAL] Nessuna cartella trovata in results_simplified/")
-        exit(1)
-
-    latest = sorted(all_dates, reverse=True)[0]
-    base_dir = os.path.join(root, latest)
-
-    output_dir = setup_figure_dirs(metric)
-
-    for parameter in sorted(os.listdir(base_dir)):
-        param_path = os.path.join(base_dir, parameter)
-        if not os.path.isdir(param_path):
-            continue
-
-        df = analyze_parameter(base_dir, parameter, metric=metric)
-        print(df)
-
-        if not df.empty:
-            csv_file = os.path.join(output_dir, f"{metric}_{parameter}.csv")
-            df.to_csv(csv_file, index=False)
-            print(f"[INFO] CSV salvato: {csv_file}")
-            plot_results(df, parameter, metric=metric, output_dir=output_dir)
-            plot_bar_comparison(df, parameter, metric=metric, output_dir=output_dir)

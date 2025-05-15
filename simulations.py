@@ -19,7 +19,7 @@ def get_defaults():
         'task_type_tuple': (0.33, 0.33, 0.34),
     }
 
-SEEDS = [0, 1, 2, 3, 4]
+SEEDS = [x for x in range(20)]
 
 PARAM_SPACE = {
     'users_number': [10, 30, 50, 80, 100],

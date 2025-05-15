@@ -18,9 +18,9 @@ VEHICLE_CPU_POWER = 200  # watt
 PRICE_KWH_CLOUD = 0.1
 PRICE_KWH = 0.15  # $/KWh
 POSSIBLE_TASK_TYPES = (16, 100, 500)  # milliseconds
-TASK_TYPE_TUPLE = (0.2, 0.6, 0.2) #alpha breta gamma it defines the task type percentage we have
+TASK_TYPE_TUPLE = (0.2, 0.6, 0.2) #alpha beta gamma it defines the task type percentage we have
 
-PRICE_SUBSCRIPTIONS = (10, 20, 30)
+PRICE_SUBSCRIPTIONS = (30, 20, 10)
 
 TASK_RATE = 10  # task requests per use per second
 
