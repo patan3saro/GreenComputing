@@ -16,7 +16,7 @@ class Cloud:
         self.position_y = position_y
         self.speed = speed
 
-    def create_beacon(self, instant_sec: float, randomize: bool = False):
+    def create_beacon(self, instant_sec, rng, randomize=False):
         """
         Returns a beacon tuple with optional random variation.
         """
@@ -37,13 +37,13 @@ class Cloud:
         dl_datarate = self.dl_datarate
 
         if randomize:
-            cpu_capacity = random.normalvariate(cpu_capacity, cpu_capacity * 0.1)
-            cpu_power = random.normalvariate(cpu_power, cpu_power * 0.1)
-            tx_power = random.normalvariate(tx_power, tx_power * 0.1)
-            energy_available = random.normalvariate(energy_available, energy_available * 0.1)
-            dollars_per_kwh = random.normalvariate(dollars_per_kwh, dollars_per_kwh * 0.05)
-            ul_datarate = random.normalvariate(ul_datarate, ul_datarate * 0.05)
-            dl_datarate = random.normalvariate(dl_datarate, dl_datarate * 0.05)
+            cpu_capacity = rng.normal(cpu_capacity, cpu_capacity * 0.1)
+            cpu_power = rng.normal(cpu_power, cpu_power * 0.1)
+            tx_power = rng.normal(tx_power, tx_power * 0.1)
+            energy_available = rng.normal(energy_available, energy_available * 0.1)
+            dollars_per_kwh = rng.normal(dollars_per_kwh, dollars_per_kwh * 0.05)
+            ul_datarate = rng.normal(ul_datarate, ul_datarate * 0.05)
+            dl_datarate = rng.normal(dl_datarate, dl_datarate * 0.05)
 
 
         return instant_sec, beacon_id, cpu_capacity, queue_capacity, cpu_power, tx_power, energy_available, dollars_per_kwh, ul_datarate, dl_datarate, self.position_x, self.position_y, self.speed

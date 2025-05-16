@@ -21,6 +21,7 @@ import json
 def set_all_vehicles_data_rate_5g_standard(
         vehicles,
         potenza_dl_dbm,
+        rng,
         avg_data_size=100000,
         banda_tot_mhz=400,
         freq_mhz=6000,
@@ -50,8 +51,8 @@ def set_all_vehicles_data_rate_5g_standard(
         weight = vehicle_weights.get(v.vehicle_id, DEFAULT_TRAFFIC)
         banda_Hz = (weight / total_weight) * banda_totale_Hz
 
-        shadowing_dB = np.random.normal(0, 4)
-        fading_dB = 20 * np.log10(np.random.rayleigh(1.0))
+        shadowing_dB = rng.normal(0, 4)
+        fading_dB = 20 * np.log10(rng.rayleigh(1.0))
         PL = path_loss_db(d_km, freq_mhz) - shadowing_dB - fading_dB
 
         p_rx_ul_dbm = v.ue_power - PL + beamforming_gain_db
