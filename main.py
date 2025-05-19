@@ -10,6 +10,7 @@ from value_function import *
 from mobility_manager import extract_city_traffic
 from network_manager import *
 from collections import defaultdict
+import numpy as np
 
 
 def simplify_real_info(info):
@@ -42,8 +43,9 @@ def filter_tasks_by_arrival_time(tasks, start_time_ms, end_time_ms):
 
 def generate_exponential_tasks(rate, task_input_size, task_output_size, task_workload,
                                num_users, max_sim_time_ms,
-                               task_type_tuple, task_type_probability, rng):
+                               task_type_tuple, task_type_probability, seed_random):
 
+    np.random.seed(seed_random)
 
     start_time_ms, end_time_ms = (0, max_sim_time_ms)
     start_time_sec = convert.ms_to_seconds(start_time_ms)
@@ -61,7 +63,7 @@ def generate_exponential_tasks(rate, task_input_size, task_output_size, task_wor
 
     # Applichiamo una normale centrata sul valore scelto
     # con deviazione standard di 0.1
-    deadlines = [rng.normalvariate(v, 0.1) for v in scelte]
+    deadlines = [np.random.normal(v, v*0.1) for v in scelte]
     deadlines_seconds = np.array(deadlines)/ 1000
 
     tasks = [{
@@ -134,10 +136,7 @@ def main(results_folder, task_input_size=TASK_INPUT_SIZE,
     num_vehicles=NUM_VEHICLES, users_number=USERS_NUMBER, num_clouds=NUM_CLOUDS,
     cloud_id=CLOUD_ID):
 
-    import random
-    import numpy as np
-    rng = random.Random(seed_random)
-    np.random.seed(seed_random)
+
 
     print("=== Avvio simulazione ===")
 
@@ -151,7 +150,7 @@ def main(results_folder, task_input_size=TASK_INPUT_SIZE,
                                 gnb_tx_power_inet, energy_available, price_kwh, ul_datarate=inet_dr, dl_datarate=inet_dr)
 
     controller = Controller(gnb_position_x=0, gnb_position_y=0)
-    tasks =  generate_exponential_tasks(task_rate, task_input_size, task_output_size, task_workload, users_number, max_simulation_time_ms, task_type_tuple, possible_task_types, rng)
+    tasks =  generate_exponential_tasks(task_rate, task_input_size, task_output_size, task_workload, users_number, max_simulation_time_ms, task_type_tuple, possible_task_types, seed_random)
 
 
     last_v_beacon = {v.vehicle_id: -vehicle_beacon_interval_ms for v in vehicles}
@@ -196,12 +195,14 @@ def main(results_folder, task_input_size=TASK_INPUT_SIZE,
         if current_time_ms == start_time:
             vehicles_with_datarates = set_all_vehicles_data_rate_5g_standard(
                 active_vehicles,
+                seed_random=seed_random,
                 potenza_dl_dbm=gnb_tx_power_5g,
                 active_ratio=0.7  # <-- x% attivi all'inizio
             )
         else:
             vehicles_with_datarates = set_all_vehicles_data_rate_5g_standard(
                 active_vehicles,
+                seed_random=seed_random,
                 potenza_dl_dbm=gnb_tx_power_5g,
                 active_ratio=1.0  # <-- tutti potenzialmente attivi nei passi successivi
             )
@@ -215,8 +216,8 @@ def main(results_folder, task_input_size=TASK_INPUT_SIZE,
                 if current_time_ms % vehicle_beacon_interval_ms != offset:
                     continue
 
-                beacon = v.create_beacon(current_time_sec, randomize=False)
-                beacon_real = v.create_beacon(current_time_sec, randomize=True)
+                beacon = v.create_beacon(current_time_sec, randomize=False, seed_random=seed_random)
+                beacon_real = v.create_beacon(current_time_sec, randomize=True,seed_random=seed_random)
                 dwell, dist = compute.calculate_dwell_time_and_distance(v.position_x, v.position_y, v.speed)
 
                 controller.receive_vehicle_beacon(beacon, current_time_ms, dwell)
@@ -229,8 +230,8 @@ def main(results_folder, task_input_size=TASK_INPUT_SIZE,
 
         for c in clouds:
             if current_time_ms - last_c_beacon[c.cloud_id] >= cloud_beacon_interval_ms:
-                cloud_beacon = c.create_beacon(current_time_sec, randomize=False)
-                cloud_beacon_real = c.create_beacon(current_time_sec, randomize=True)
+                cloud_beacon = c.create_beacon(current_time_sec, randomize=False, seed_random=seed_random)
+                cloud_beacon_real = c.create_beacon(current_time_sec, randomize=True, seed_random=seed_random)
                 beacon_df = pd.concat([beacon_df, pd.DataFrame([cloud_beacon])], ignore_index=True)
                 beacon_df_real = pd.concat([beacon_df_real, pd.DataFrame([cloud_beacon_real])], ignore_index=True)
 

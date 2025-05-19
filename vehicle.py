@@ -1,4 +1,4 @@
-import random
+import numpy as  np
 
 class Vehicle:
     def __init__(self, vehicle_id=None, cpu_capacity=None, queue_capacity=None, cpu_power=None,
@@ -16,7 +16,7 @@ class Vehicle:
         self.position_y = position_y
         self.speed = speed
 
-    def create_beacon(self, instant_sec: float, randomize: bool = False,):
+    def create_beacon(self, instant_sec: float, randomize: bool = False, seed_random: int = None):
         """
         Returns a beacon tuple with mobility info and optional random variation.
         """
@@ -25,7 +25,7 @@ class Vehicle:
                      'ul_datarate', 'dl_datarate', 'position_x', 'position_y', 'speed']:
             if getattr(self, attr) is None:
                 raise ValueError(f"Vehicle {attr} is not defined")
-
+        np.random.seed(seed_random)
         # Base values
         beacon_id = self.vehicle_id
         cpu_capacity = self.cpu_capacity
@@ -36,12 +36,12 @@ class Vehicle:
         queue_capacity = self.queue_capacity
 
         if randomize:
-            cpu_capacity = random.normalvariate(cpu_capacity, cpu_capacity * 0.1)
-            cpu_power = random.normalvariate(cpu_power, cpu_power * 0.1)
-            ue_power = random.normalvariate(ue_power, ue_power * 0.1)
-            energy_available = random.normalvariate(energy_available, energy_available * 0.1)
-            dollars_per_kwh = random.normalvariate(dollars_per_kwh, dollars_per_kwh * 0.05)
-            queue_capacity = random.randint(queue_capacity, queue_capacity + 10)
+            cpu_capacity = np.random.normal(cpu_capacity, cpu_capacity * 0.1)
+            cpu_power =np.random.normal(cpu_power, cpu_power * 0.1)
+            ue_power = np.random.normal(ue_power, ue_power * 0.1)
+            energy_available = np.random.normal(energy_available, energy_available * 0.1)
+            dollars_per_kwh = np.random.normal(dollars_per_kwh, dollars_per_kwh * 0.05)
+            queue_capacity =np.random.normal(queue_capacity, queue_capacity + 10)
 
         return instant_sec, beacon_id, cpu_capacity,  queue_capacity, cpu_power, ue_power, energy_available, dollars_per_kwh, self.ul_datarate, self.dl_datarate, self.position_x, self.position_y, self.speed
 

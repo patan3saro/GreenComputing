@@ -21,6 +21,7 @@ import json
 def set_all_vehicles_data_rate_5g_standard(
         vehicles,
         potenza_dl_dbm,
+        seed_random,
         avg_data_size=100000,
         banda_tot_mhz=400,
         freq_mhz=6000,
@@ -30,6 +31,7 @@ def set_all_vehicles_data_rate_5g_standard(
         sinr_min_db=-5,
         active_ratio=1.0  # <-- aggiunto per stimare quanti nodi trasmettono
 ):
+    np.random.seed(seed_random)
     risultati = []
     if not vehicles:
         return risultati

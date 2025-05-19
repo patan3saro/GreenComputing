@@ -8,7 +8,7 @@ def get_defaults():
         'users_number': 50,
         'task_workload': 5e8,
         'task_rate': 10,
-        'num_vehicles': 20,
+        'num_vehicles': 50,
         'vehicle_queue_capacity': 1,
         'vehicle_cpu_capacity': 1.3e13,
         'vehicle_cpu_power': 200,
@@ -19,7 +19,7 @@ def get_defaults():
         'task_type_tuple': (0.33, 0.33, 0.34),
     }
 
-SEEDS = [x for x in range(20)]
+SEEDS = [x for x in range(2)]
 
 PARAM_SPACE = {
     'users_number': [10, 30, 50, 80, 100],
