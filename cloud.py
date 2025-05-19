@@ -1,4 +1,4 @@
-import random
+import numpy as np
 
 class Cloud:
     def __init__(self, cloud_id=None, cpu_capacity=None, queue_capacity=None, cpu_power=None,
@@ -16,10 +16,14 @@ class Cloud:
         self.position_y = position_y
         self.speed = speed
 
-    def create_beacon(self, instant_sec, rng, randomize=False):
+
+    def create_beacon(self, instant_sec: float, randomize: bool = False, seed_random: int = None):
+
         """
         Returns a beacon tuple with optional random variation.
         """
+        np.random.seed(seed_random)
+
         # Validate required attributes
         for attr in ['cloud_id', 'cpu_capacity', 'queue_capacity', 'cpu_power', 'tx_power', 'energy_available', 'dollars_per_kwh', 'ul_datarate', 'dl_datarate', 'position_x', 'position_y', 'speed']:
             if getattr(self, attr) is None:
@@ -37,13 +41,14 @@ class Cloud:
         dl_datarate = self.dl_datarate
 
         if randomize:
-            cpu_capacity = rng.normal(cpu_capacity, cpu_capacity * 0.1)
-            cpu_power = rng.normal(cpu_power, cpu_power * 0.1)
-            tx_power = rng.normal(tx_power, tx_power * 0.1)
-            energy_available = rng.normal(energy_available, energy_available * 0.1)
-            dollars_per_kwh = rng.normal(dollars_per_kwh, dollars_per_kwh * 0.05)
-            ul_datarate = rng.normal(ul_datarate, ul_datarate * 0.05)
-            dl_datarate = rng.normal(dl_datarate, dl_datarate * 0.05)
+            cpu_capacity = np.random.normal(cpu_capacity, cpu_capacity * 0.1)
+            cpu_power = np.random.normal(cpu_power, cpu_power * 0.1)
+            tx_power = np.random.normal(tx_power, tx_power * 0.1)
+            energy_available = np.random.normal(energy_available, energy_available * 0.1)
+            dollars_per_kwh = np.random.normal(dollars_per_kwh, dollars_per_kwh * 0.05)
+            ul_datarate = np.random.normal(ul_datarate, ul_datarate * 0.05)
+            dl_datarate = np.random.normal(dl_datarate, dl_datarate * 0.05)
+
 
 
         return instant_sec, beacon_id, cpu_capacity, queue_capacity, cpu_power, tx_power, energy_available, dollars_per_kwh, ul_datarate, dl_datarate, self.position_x, self.position_y, self.speed

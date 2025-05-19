@@ -1,7 +1,7 @@
 from utils_for_covertions import *
 import math
 
-def calculate_dwell_time_and_distance(position_x, position_y, speed, gnb_position_x=0, gnb_position_y=0, coverage_radius=1000):
+def calculate_dwell_time_and_distance(position_x, position_y, speed, gnb_position_x=900, gnb_position_y=900, coverage_radius=1000):
     euclidean_distance = math.sqrt((position_x - gnb_position_x) ** 2 +
                                    (position_y - gnb_position_y) ** 2)
 
@@ -81,7 +81,7 @@ def offloading_time_energy(task, beacon, algorithm_overhead):
     elif node_type == 'vehicle':
         dwell_time, distance_to_gnb = calculate_dwell_time_and_distance(
             beacon[2]['position_x'], beacon[2]['position_y'], beacon[2]['speed'],
-            gnb_position_x=0, gnb_position_y=0, coverage_radius=1000)
+            gnb_position_x=900, gnb_position_y=900, coverage_radius=1000)
 
         vue_propagation_radio = 2.0 * distance_to_gnb * inv_speed_light
         ul_transmission_vue = input_size * inv_dr_5g_ul

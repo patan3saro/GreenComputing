@@ -12,6 +12,7 @@ from value_function import *
 from mobility_manager import extract_city_traffic
 from network_manager import *
 from collections import defaultdict
+import numpy as np
 
 
 def simplify_real_info(info):
@@ -45,7 +46,10 @@ def filter_tasks_by_arrival_time(tasks, start_time_ms, end_time_ms):
 
 def generate_exponential_tasks(rate, task_input_size, task_output_size, task_workload,
                                num_users, max_sim_time_ms,
-                               task_type_tuple, task_type_probability, rng):
+                               task_type_tuple, task_type_probability, seed_random):
+
+
+    np.random.seed(seed_random)
 
     start_time_ms, end_time_ms = (0, max_sim_time_ms)
     start_time_sec = convert.ms_to_seconds(start_time_ms)
@@ -61,8 +65,12 @@ def generate_exponential_tasks(rate, task_input_size, task_output_size, task_wor
     # Scegli la deadline base
     scelte = rng.choice(task_type_probability, size=n_tasks, p=task_type_tuple)
 
-    # Applica piccola deviazione (5%) in modo deterministico
-    deadlines_seconds = rng.normal(scelte, scelte * 0.05) / 1000
+
+    # Applichiamo una normale centrata sul valore scelto
+    # con deviazione standard di 0.1
+    deadlines = [np.random.normal(v, v*0.1) for v in scelte]
+    deadlines_seconds = np.array(deadlines)/ 1000
+
 
     tasks = [{
         "id": i,
@@ -129,36 +137,29 @@ def create_cloud_nodes(num_clouds, cpu_capacity, queue_capacity, cpu_power,
             for i in range(num_clouds)]
 
 
-# =============================================================================
-# Main
-# =============================================================================
 
-def main(results_folder,
-         task_input_size=TASK_INPUT_SIZE,
-         task_output_size=TASK_OUTPUT_SIZE,
-         task_workload=TASK_WORKLOAD,
-         city=CITY, city_bbox=CITY_BBOX,
-         seed_random=SEED_RANDOM, no_id=NO_ID, verbose=VERBOSE,
-         dr_5g=DR_5G, inet_dr=DR_INET, inet_delay=INET_DELAY,
-         gnb_tx_power_5g=GNB_TX_POWER_5G, gnb_tx_power_inet=GNB_TX_POWER_INET, ue_tx_power=UE_TX_POWER,
-         coverage_radius=COVERAGE_RADIUS, pedestrian_ue_distance=PEDESTRIAN_UE_DISTANCE,
-         cloud_distance=CLOUD_DISTANCE, cloud_cpu_capacity=CLOUD_CPU_CAPACITY,
-         vehicle_cpu_capacity=VEHICLE_CPU_CAPACITY, vehicle_queue_capacity=VEHICLE_QUEUE_CAPACITY,
-         cloud_queue_capacity=CLOUD_QUEUE_CAPACITY, controller_cpu_power=CONTROLLER_CPU_POWER,
-         vehicle_cpu_power=VEHICLE_CPU_POWER, energy_available=ENERGY_AVAILABLE,
-         price_kwh=PRICE_KWH, no_energy_price=NO_ENERGY_PRICE,
-         possible_task_types=POSSIBLE_TASK_TYPES, task_type_tuple=TASK_TYPE_TUPLE, task_rate=TASK_RATE,
-         window_task_collection=WINDOW_TASK_COLLECTION, price_subscriptions=PRICE_SUBSCRIPTIONS,
-         start_time=START_TIME, max_simulation_time_ms=MAX_SIMULATION_TIME_MS, time_step_ms=TIME_STEP_MS,
-         vehicle_beacon_interval_ms=VEHICLE_BEACON_INTERVAL_MS,
-         cloud_beacon_interval_ms=CLOUD_BEACON_INTERVAL_MS,
-         num_vehicles=NUM_VEHICLES, users_number=USERS_NUMBER, num_clouds=NUM_CLOUDS,
-         cloud_id=CLOUD_ID):
+def main(results_folder, task_input_size=TASK_INPUT_SIZE,
+    task_output_size=TASK_OUTPUT_SIZE,
+    task_workload=TASK_WORKLOAD,
+    city=CITY, city_bbox=CITY_BBOX, seed_random=SEED_RANDOM, no_id=NO_ID, verbose=VERBOSE,
+    dr_5g=DR_5G, inet_dr=DR_INET, inet_delay=INET_DELAY,
+    gnb_tx_power_5g=GNB_TX_POWER_5G, gnb_tx_power_inet=GNB_TX_POWER_INET, ue_tx_power=UE_TX_POWER,
+    coverage_radius=COVERAGE_RADIUS, pedestrian_ue_distance=PEDESTRIAN_UE_DISTANCE,
+    cloud_distance=CLOUD_DISTANCE, cloud_cpu_capacity=CLOUD_CPU_CAPACITY,
+    vehicle_cpu_capacity=VEHICLE_CPU_CAPACITY, vehicle_queue_capacity=VEHICLE_QUEUE_CAPACITY,
+    cloud_queue_capacity=CLOUD_QUEUE_CAPACITY, controller_cpu_power=CONTROLLER_CPU_POWER,
+    vehicle_cpu_power=VEHICLE_CPU_POWER, energy_available=ENERGY_AVAILABLE,
+    price_kwh=PRICE_KWH, no_energy_price=NO_ENERGY_PRICE,
+    possible_task_types=POSSIBLE_TASK_TYPES, task_type_tuple=TASK_TYPE_TUPLE, task_rate=TASK_RATE,
+    window_task_collection=WINDOW_TASK_COLLECTION, price_subscriptions=PRICE_SUBSCRIPTIONS,
+    start_time=START_TIME, max_simulation_time_ms=MAX_SIMULATION_TIME_MS, time_step_ms=TIME_STEP_MS,
+    vehicle_beacon_interval_ms=VEHICLE_BEACON_INTERVAL_MS,
+    cloud_beacon_interval_ms=CLOUD_BEACON_INTERVAL_MS,
+    num_vehicles=NUM_VEHICLES, users_number=USERS_NUMBER, num_clouds=NUM_CLOUDS,
+    cloud_id=CLOUD_ID):
 
-    # ---------------------------------------------------------------------
-    # Deterministic seed setup
-    # ---------------------------------------------------------------------
-    rng = set_global_seed(seed_random)
+
+
 
     print("=== Avvio simulazione ===")
 
@@ -179,13 +180,11 @@ def main(results_folder,
                                 gnb_tx_power_inet, energy_available, price_kwh,
                                 ul_datarate=inet_dr, dl_datarate=inet_dr)
 
-    # ---------------------------------------------------------------------
-    # Controller & task generation
-    # ---------------------------------------------------------------------
-    controller = Controller(gnb_position_x=0, gnb_position_y=0)
-    tasks = generate_exponential_tasks(task_rate, task_input_size, task_output_size, task_workload,
-                                       users_number, max_simulation_time_ms, task_type_tuple,
-                                       possible_task_types, rng)
+
+    controller = Controller(gnb_position_x=900, gnb_position_y=900)
+    tasks =  generate_exponential_tasks(task_rate, task_input_size, task_output_size, task_workload, users_number, max_simulation_time_ms, task_type_tuple, possible_task_types, seed_random)
+
+
 
     last_v_beacon = {v.vehicle_id: -vehicle_beacon_interval_ms for v in vehicles}
     last_v_real = last_v_beacon.copy()
@@ -216,38 +215,44 @@ def main(results_folder,
     while current_time_ms <= max_simulation_time_ms:
         current_time_sec = convert.ms_to_seconds(current_time_ms)
 
-        # Aggiorna posizione veicoli
+        #assign current position to vehicles
+
         for vs in vehicles:
             vs.set_istantaneous_mobility_pattern(current_time_sec, mobility_df)
 
         # Aggiorna datarate veicoli
         active_vehicles = [v for v in vehicles if not is_node_busy(v.vehicle_id, busy_nodes_id)]
 
-        if current_time_ms == start_time:
-            vehicles_with_datarates = set_all_vehicles_data_rate_5g_standard(
-                active_vehicles,
-                potenza_dl_dbm=gnb_tx_power_5g,
-                rng=rng,
-                active_ratio=0.7)
+
+        #assign datarates to vehicles
+        active_vehicles = [v for v in vehicles_with_mobility if not is_node_busy(v.vehicle_id, busy_nodes_id)]
+
+        # Calcolo datarate iniziale con x% attivi solo nel primo step
+
+
+                active_ratio=2*((users_number*task_rate) / (1000/window_task_collection))/num_vehicles   # <-- x% attivi all'inizio
+            )
+            print(((users_number*task_rate) / (1000/window_task_collection))/num_vehicles )
+
         else:
             vehicles_with_datarates = set_all_vehicles_data_rate_5g_standard(
                 active_vehicles,
+                seed_random=seed_random,
                 potenza_dl_dbm=gnb_tx_power_5g,
-                rng=rng,
-                active_ratio=1.0)
+                active_ratio=2*((users_number*task_rate) / (1000/window_task_collection))/num_vehicles  # <-- tutti potenzialmente attivi nei passi successivi
+            )
 
-        # -----------------------------------------------------------------
-        # Beacon handling
-        # -----------------------------------------------------------------
+        # Beacon asincroni: ogni veicolo ha offset sfasato nel tempo
+
+
         for v in vehicles_with_datarates:
+
             if current_time_ms - last_v_beacon[v.vehicle_id] >= vehicle_beacon_interval_ms and not is_node_busy(
                     v.vehicle_id, busy_nodes_id):
-                offset = v.vehicle_id % 100
-                if current_time_ms % vehicle_beacon_interval_ms != offset:
-                    continue
 
-                beacon = v.create_beacon(current_time_sec, rng, randomize=False)
-                beacon_real = v.create_beacon(current_time_sec, rng, randomize=True)
+                beacon = v.create_beacon(current_time_sec, randomize=False, seed_random=seed_random)
+                beacon_real = v.create_beacon(current_time_sec, randomize=True,seed_random=seed_random)
+
                 dwell, dist = compute.calculate_dwell_time_and_distance(v.position_x, v.position_y, v.speed)
 
                 controller.receive_vehicle_beacon(beacon, current_time_ms, dwell)
@@ -260,8 +265,9 @@ def main(results_folder,
 
         for c in clouds:
             if current_time_ms - last_c_beacon[c.cloud_id] >= cloud_beacon_interval_ms:
-                cloud_beacon = c.create_beacon(current_time_sec, rng, randomize=False)
-                cloud_beacon_real = c.create_beacon(current_time_sec, rng, randomize=True)
+
+                cloud_beacon = c.create_beacon(current_time_sec, randomize=False, seed_random=seed_random)
+                cloud_beacon_real = c.create_beacon(current_time_sec, randomize=True, seed_random=seed_random)
 
                 beacon_df = pd.concat([beacon_df, pd.DataFrame([cloud_beacon])], ignore_index=True)
                 beacon_df_real = pd.concat([beacon_df_real, pd.DataFrame([cloud_beacon_real])], ignore_index=True)
@@ -286,9 +292,11 @@ def main(results_folder,
                     tasks_df = pd.concat([tasks_df, new_tasks_df], ignore_index=True)
 
                 beacons = controller.beacons
+
                 if beacons:
-                    assigned_nodes, tasks_per_node, task_assignments, total_utility_allocation, algo_overhead = optimize_task_allocation(
-                        beacons, filtered, task_rate)
+
+                    print('BBBBBBBBBB', len(beacons))
+                    assigned_nodes, tasks_per_node, task_assignments, total_utility_allocation, algo_overhead = optimize_task_allocation(beacons, filtered, task_rate)
 
                     # -----------------------------------------------------------------
                     # Update datarates considering allocated traffic

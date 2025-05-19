@@ -21,8 +21,9 @@ import json
 def set_all_vehicles_data_rate_5g_standard(
         vehicles,
         potenza_dl_dbm,
-        rng,
-        avg_data_size=100000,
+        seed_random,
+        avg_data_size=200*8,
+
         banda_tot_mhz=400,
         freq_mhz=6000,
         num_stream=2,
@@ -31,6 +32,7 @@ def set_all_vehicles_data_rate_5g_standard(
         sinr_min_db=-5,
         active_ratio=1.0  # <-- aggiunto per stimare quanti nodi trasmettono
 ):
+    np.random.seed(seed_random)
     risultati = []
     if not vehicles:
         return risultati
@@ -45,7 +47,7 @@ def set_all_vehicles_data_rate_5g_standard(
     noise_mw = dbm_to_mw(noise_dbm)
 
     for i, v in enumerate(vehicles):
-        distanza_m = np.linalg.norm(np.array([v.position_x, v.position_y]) - [0, 0])
+        distanza_m = np.linalg.norm(np.array([v.position_x, v.position_y]) - [900, 900])
         d_km = max(distanza_m / 1000, 0.01)
 
         weight = vehicle_weights.get(v.vehicle_id, DEFAULT_TRAFFIC)
