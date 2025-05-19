@@ -149,7 +149,7 @@ def main(results_folder, task_input_size=TASK_INPUT_SIZE,
     clouds = create_cloud_nodes(num_clouds, cloud_cpu_capacity, cloud_queue_capacity, controller_cpu_power,
                                 gnb_tx_power_inet, energy_available, price_kwh, ul_datarate=inet_dr, dl_datarate=inet_dr)
 
-    controller = Controller(gnb_position_x=0, gnb_position_y=0)
+    controller = Controller(gnb_position_x=300, gnb_position_y=300)
     tasks =  generate_exponential_tasks(task_rate, task_input_size, task_output_size, task_workload, users_number, max_simulation_time_ms, task_type_tuple, possible_task_types, seed_random)
 
 
@@ -182,7 +182,6 @@ def main(results_folder, task_input_size=TASK_INPUT_SIZE,
 
     while current_time_ms <= max_simulation_time_ms:
         current_time_sec = convert.ms_to_seconds(current_time_ms)
-
         #assign current position to vehicles
         for vs in vehicles:
             vs.set_istantaneous_mobility_pattern(current_time_sec, mobility_df)
@@ -191,31 +190,30 @@ def main(results_folder, task_input_size=TASK_INPUT_SIZE,
 
         #assign datarates to vehicles
         active_vehicles = [v for v in vehicles_with_mobility if not is_node_busy(v.vehicle_id, busy_nodes_id)]
+
         # Calcolo datarate iniziale con x% attivi solo nel primo step
         if current_time_ms == start_time:
             vehicles_with_datarates = set_all_vehicles_data_rate_5g_standard(
                 active_vehicles,
                 seed_random=seed_random,
                 potenza_dl_dbm=gnb_tx_power_5g,
-                active_ratio=0.7  # <-- x% attivi all'inizio
+                active_ratio=2*((users_number*task_rate) / (1000/window_task_collection))/num_vehicles   # <-- x% attivi all'inizio
             )
+            print(((users_number*task_rate) / (1000/window_task_collection))/num_vehicles )
         else:
             vehicles_with_datarates = set_all_vehicles_data_rate_5g_standard(
                 active_vehicles,
                 seed_random=seed_random,
                 potenza_dl_dbm=gnb_tx_power_5g,
-                active_ratio=1.0  # <-- tutti potenzialmente attivi nei passi successivi
+                active_ratio=2*((users_number*task_rate) / (1000/window_task_collection))/num_vehicles  # <-- tutti potenzialmente attivi nei passi successivi
             )
 
         # Beacon asincroni: ogni veicolo ha offset sfasato nel tempo
+
         for v in vehicles_with_datarates:
+
             if current_time_ms - last_v_beacon[v.vehicle_id] >= vehicle_beacon_interval_ms and not is_node_busy(
                     v.vehicle_id, busy_nodes_id):
-                # Invia beacon con ritardo sfasato (offset = vehicle_id % 100 ms)
-                offset = v.vehicle_id % 100
-                if current_time_ms % vehicle_beacon_interval_ms != offset:
-                    continue
-
                 beacon = v.create_beacon(current_time_sec, randomize=False, seed_random=seed_random)
                 beacon_real = v.create_beacon(current_time_sec, randomize=True,seed_random=seed_random)
                 dwell, dist = compute.calculate_dwell_time_and_distance(v.position_x, v.position_y, v.speed)
@@ -259,7 +257,9 @@ def main(results_folder, task_input_size=TASK_INPUT_SIZE,
                     tasks_df = pd.concat([tasks_df, new_tasks_df], ignore_index=True)
 
                 beacons = controller.beacons
+
                 if beacons:
+                    print('BBBBBBBBBB', len(beacons))
                     assigned_nodes, tasks_per_node, task_assignments, total_utility_allocation, algo_overhead = optimize_task_allocation(beacons, filtered, task_rate)
 
 

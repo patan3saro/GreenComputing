@@ -12,6 +12,7 @@ import urllib.request
 
 def fix_manhattan_simulation(random_seed, num_vehicles=10, total_time=100, time_step=0.1,
                            grid_number=5, grid_length=300):
+    random_seed=42
     """
     Create a Manhattan grid simulation with correct edge IDs to avoid routing errors
 
@@ -624,7 +625,7 @@ if __name__ == "__main__":
     # Example 2: Real City Traffic - Rome
     print("\n=== Running Rome City Traffic Simulation ===\n")
     # Small area in central Rome
-    rome_bbox = (12.4800, 41.8950, 12.4950, 41.9050)
+    rome_bbox = (12.4779, 41.8928, 12.4971, 41.9072)
 
     rome_output_path, rome_df = extract_city_traffic(
         city_name="Rome",

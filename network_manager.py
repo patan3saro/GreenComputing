@@ -22,7 +22,7 @@ def set_all_vehicles_data_rate_5g_standard(
         vehicles,
         potenza_dl_dbm,
         seed_random,
-        avg_data_size=100000,
+        avg_data_size=200*8,
         banda_tot_mhz=400,
         freq_mhz=6000,
         num_stream=2,

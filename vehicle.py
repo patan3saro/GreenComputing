@@ -47,7 +47,9 @@ class Vehicle:
 
     def set_istantaneous_mobility_pattern(self, instant_sec, mobility_df):
         # Trova l'indice con timestamp più vicino a `instant`
-        idx = (mobility_df['time'] - instant_sec).abs().idxmin()
+        idx = mobility_df[mobility_df['id'] == self.vehicle_id] \
+            ['time'].sub(instant_sec).abs().idxmin()
+
         row = mobility_df.loc[idx]
         self.position_x = row['position_x']
         self.position_y = row['position_y']
