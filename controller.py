@@ -1,7 +1,7 @@
 import heapq
 
 class Controller:
-    def __init__(self, gnb_position_x=0, gnb_position_y=0):
+    def __init__(self, gnb_position_x=900, gnb_position_y=900):
 
         self.gnb_position_x = gnb_position_x
         self.gnb_position_y = gnb_position_y

@@ -149,7 +149,7 @@ def main(results_folder, task_input_size=TASK_INPUT_SIZE,
     clouds = create_cloud_nodes(num_clouds, cloud_cpu_capacity, cloud_queue_capacity, controller_cpu_power,
                                 gnb_tx_power_inet, energy_available, price_kwh, ul_datarate=inet_dr, dl_datarate=inet_dr)
 
-    controller = Controller(gnb_position_x=300, gnb_position_y=300)
+    controller = Controller(gnb_position_x=900, gnb_position_y=900)
     tasks =  generate_exponential_tasks(task_rate, task_input_size, task_output_size, task_workload, users_number, max_simulation_time_ms, task_type_tuple, possible_task_types, seed_random)
 
 

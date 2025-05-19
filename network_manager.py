@@ -46,7 +46,7 @@ def set_all_vehicles_data_rate_5g_standard(
     noise_mw = dbm_to_mw(noise_dbm)
 
     for i, v in enumerate(vehicles):
-        distanza_m = np.linalg.norm(np.array([v.position_x, v.position_y]) - [0, 0])
+        distanza_m = np.linalg.norm(np.array([v.position_x, v.position_y]) - [900, 900])
         d_km = max(distanza_m / 1000, 0.01)
 
         weight = vehicle_weights.get(v.vehicle_id, DEFAULT_TRAFFIC)

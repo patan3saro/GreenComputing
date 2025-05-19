@@ -15,10 +15,10 @@ GNB_TX_POWER_INET = 23
 UE_TX_POWER = 23
 CONTROLLER_CPU_POWER = 200  # watt
 VEHICLE_CPU_POWER = 200  # watt
-PRICE_KWH_CLOUD = 0.1
+PRICE_KWH_CLOUD = 0.15
 PRICE_KWH = 0.15  # $/KWh
 POSSIBLE_TASK_TYPES = (16, 100, 500)  # milliseconds
-TASK_TYPE_TUPLE = (0.2, 0.6, 0.2) #alpha beta gamma it defines the task type percentage we have
+TASK_TYPE_TUPLE = (0.33, 0.33, 0.34) #alpha beta gamma it defines the task type percentage we have
 
 PRICE_SUBSCRIPTIONS = (30, 20, 10)
 
@@ -28,13 +28,13 @@ VEHICLE_QUEUE_CAPACITY = 1
 CLOUD_QUEUE_CAPACITY = 10.0e+12
 
 NUM_VEHICLES = 100
-MAX_SIMULATION_TIME_MS =  600
+MAX_SIMULATION_TIME_MS =  240
 TIME_STEP_MS = 1  # millisecond time step
 USERS_NUMBER = 100
 NUM_CLOUDS = 1
 
 CITY = "Rome"
-CITY_BBOX = (12.4800, 41.8950, 12.4950, 41.9050)
+CITY_BBOX = (12.4779, 41.8928, 12.4971, 41.9072)
 
 WINDOW_TASK_COLLECTION = 5  # milliseconds
 
