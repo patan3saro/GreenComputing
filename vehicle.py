@@ -16,7 +16,9 @@ class Vehicle:
         self.position_y = position_y
         self.speed = speed
 
+
     def create_beacon(self, instant_sec: float, randomize: bool = False, seed_random: int = None):
+
         """
         Returns a beacon tuple with mobility info and optional random variation.
         """
@@ -36,12 +38,14 @@ class Vehicle:
         queue_capacity = self.queue_capacity
 
         if randomize:
+
             cpu_capacity = np.random.normal(cpu_capacity, cpu_capacity * 0.1)
             cpu_power =np.random.normal(cpu_power, cpu_power * 0.1)
             ue_power = np.random.normal(ue_power, ue_power * 0.1)
             energy_available = np.random.normal(energy_available, energy_available * 0.1)
             dollars_per_kwh = np.random.normal(dollars_per_kwh, dollars_per_kwh * 0.05)
             queue_capacity =np.random.normal(queue_capacity, queue_capacity + 10)
+
 
         return instant_sec, beacon_id, cpu_capacity,  queue_capacity, cpu_power, ue_power, energy_available, dollars_per_kwh, self.ul_datarate, self.dl_datarate, self.position_x, self.position_y, self.speed
 

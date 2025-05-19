@@ -16,7 +16,9 @@ class Cloud:
         self.position_y = position_y
         self.speed = speed
 
+
     def create_beacon(self, instant_sec: float, randomize: bool = False, seed_random: int = None):
+
         """
         Returns a beacon tuple with optional random variation.
         """
@@ -46,6 +48,7 @@ class Cloud:
             dollars_per_kwh = np.random.normal(dollars_per_kwh, dollars_per_kwh * 0.05)
             ul_datarate = np.random.normal(ul_datarate, ul_datarate * 0.05)
             dl_datarate = np.random.normal(dl_datarate, dl_datarate * 0.05)
+
 
 
         return instant_sec, beacon_id, cpu_capacity, queue_capacity, cpu_power, tx_power, energy_available, dollars_per_kwh, ul_datarate, dl_datarate, self.position_x, self.position_y, self.speed

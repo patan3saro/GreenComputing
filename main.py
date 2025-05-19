@@ -1,7 +1,9 @@
 import os
 import pandas as pd
 import math
+import numpy as np
 import json
+from seeds_utils import set_global_seed
 from config import *
 from vehicle import Vehicle
 from cloud import Cloud
@@ -34,16 +36,18 @@ def simplify_assignment(assignment):
 def is_node_busy(node_id, busy_nodes_id):
     return any(node['busy_id'] == node_id for node in busy_nodes_id)
 
-def filter_tasks_by_arrival_time(tasks, start_time_ms, end_time_ms):
-    start_time = start_time_ms/1000
-    end_time = end_time_ms/1000
 
-    filtered_tasks=[task for task in tasks if "arrival_time" in task and start_time <= task["arrival_time"] <= end_time]
-    return filtered_tasks
+def filter_tasks_by_arrival_time(tasks, start_time_ms, end_time_ms):
+    start_time = start_time_ms / 1000
+    end_time = end_time_ms / 1000
+
+    return [task for task in tasks if "arrival_time" in task and start_time <= task["arrival_time"] <= end_time]
+
 
 def generate_exponential_tasks(rate, task_input_size, task_output_size, task_workload,
                                num_users, max_sim_time_ms,
                                task_type_tuple, task_type_probability, seed_random):
+
 
     np.random.seed(seed_random)
 
@@ -53,42 +57,49 @@ def generate_exponential_tasks(rate, task_input_size, task_output_size, task_wor
 
     total_rate = rate * num_users
     window_duration_sec = end_time_sec - start_time_sec
-    n_tasks = np.random.poisson(lam=total_rate * window_duration_sec)
+    n_tasks = rng.poisson(lam=total_rate * window_duration_sec)
 
-    arrival_times_sec = np.random.uniform(start_time_sec, end_time_sec, size=n_tasks)
+    arrival_times_sec = rng.uniform(start_time_sec, end_time_sec, size=n_tasks)
     arrival_times_sec.sort()
 
-    # Scelta delle deadline valori base secondo le probabilità
-    scelte = np.random.choice(task_type_probability, size=n_tasks, p=task_type_tuple)
+    # Scegli la deadline base
+    scelte = rng.choice(task_type_probability, size=n_tasks, p=task_type_tuple)
+
 
     # Applichiamo una normale centrata sul valore scelto
     # con deviazione standard di 0.1
     deadlines = [np.random.normal(v, v*0.1) for v in scelte]
     deadlines_seconds = np.array(deadlines)/ 1000
 
+
     tasks = [{
         "id": i,
-        "arrival_time": arrival_time,  # in secondi
-        "I": task_input_size,  # bit
-        "O": task_output_size,  # bit
-        "W": task_workload,  # 500 Mcycles
-        "D": deadline  # in secondi
+        "arrival_time": arrival_time,
+        "I": task_input_size,
+        "O": task_output_size,
+        "W": task_workload,
+        "D": deadline
     } for i, (arrival_time, deadline) in enumerate(zip(arrival_times_sec, deadlines_seconds))]
 
-    print(
-        f"Generati {len(tasks)} task per {num_users} utenti a tasso {rate}/sec nella finestra [{start_time_sec}-{end_time_sec}]sec")
+    print(f"Generati {len(tasks)} task per {num_users} utenti a tasso {rate}/sec nella finestra [{start_time_sec}-{end_time_sec}]sec")
     return tasks
 
 
-#vedi se tutto funziona secondo la nuova logca e ordine implementati in cloud e vehicle
+# =============================================================================
+# Support
+# =============================================================================
 
-def create_vehicles_and_mobility(random_seed, num_vehicles, city, city_bbox, max_simulation_time_ms, vehicle_cpu_capacity, vehicle_queue_capacity,vehicle_cpu_power, ue_power, energy_available, dollars_per_kwh):
+def create_vehicles_and_mobility(random_seed, num_vehicles, city, city_bbox, max_simulation_time_ms,
+                                 vehicle_cpu_capacity, vehicle_queue_capacity, vehicle_cpu_power,
+                                 ue_power, energy_available, dollars_per_kwh):
     max_simulation_time_seconds = convert.ms_to_seconds(max_simulation_time_ms)
-    output_dir, mobility_df = extract_city_traffic(random_seed, city, "it", city_bbox, max_simulation_time_seconds, 0.1, num_vehicles)
+    output_dir, mobility_df = extract_city_traffic(random_seed, city, "it", city_bbox,
+                                                   max_simulation_time_seconds, 0.1, num_vehicles)
     if mobility_df is None or mobility_df.empty:
         raise RuntimeError(f"Nessun dato di traffico estratto da {output_dir}, None or Empty")
-    # Ora è sicuro ordinare
+
     mobility_df = mobility_df.sort_values(by=['id', 'time'], ascending=[True, False])
+
     return [
         Vehicle(vehicle_id=vid,
                 cpu_capacity=vehicle_cpu_capacity,
@@ -97,23 +108,34 @@ def create_vehicles_and_mobility(random_seed, num_vehicles, city, city_bbox, max
                 ue_power=ue_power,
                 energy_available=energy_available,
                 dollars_per_kwh=dollars_per_kwh,
-                ul_datarate = None,
-                dl_datarate = None,
-                position_x = None,
-                position_y = None,
-                speed = None)
+                ul_datarate=None,
+                dl_datarate=None,
+                position_x=None,
+                position_y=None,
+                speed=None)
         for vid, _ in mobility_df.groupby('id')
     ], mobility_df
 
 
 
-
 def create_cloud_nodes(num_clouds, cpu_capacity, queue_capacity, cpu_power,
-tx_power, energy_available, dollars_per_kwh, ul_datarate, dl_datarate, position_x=0, position_y=0, speed=0):
+                       tx_power, energy_available, dollars_per_kwh, ul_datarate,
+                       dl_datarate, position_x=0, position_y=0, speed=0):
     cloud_id_base = -1
-    return [Cloud(cloud_id=cloud_id_base - i, cpu_capacity=cpu_capacity, queue_capacity=queue_capacity, cpu_power=cpu_power,
-                  tx_power=tx_power, energy_available=energy_available, dollars_per_kwh=dollars_per_kwh, ul_datarate=ul_datarate, dl_datarate=dl_datarate, position_x=position_x, position_y=position_y, speed=speed)
+    return [Cloud(cloud_id=cloud_id_base - i,
+                  cpu_capacity=cpu_capacity,
+                  queue_capacity=queue_capacity,
+                  cpu_power=cpu_power,
+                  tx_power=tx_power,
+                  energy_available=energy_available,
+                  dollars_per_kwh=dollars_per_kwh,
+                  ul_datarate=ul_datarate,
+                  dl_datarate=dl_datarate,
+                  position_x=position_x,
+                  position_y=position_y,
+                  speed=speed)
             for i in range(num_clouds)]
+
 
 
 def main(results_folder, task_input_size=TASK_INPUT_SIZE,
@@ -138,68 +160,80 @@ def main(results_folder, task_input_size=TASK_INPUT_SIZE,
 
 
 
+
     print("=== Avvio simulazione ===")
 
+    # ---------------------------------------------------------------------
+    # Vehicles & mobility
+    # ---------------------------------------------------------------------
     print("=== Creazione veicoli e mobilità ===")
-    vehicles, mobility_df = create_vehicles_and_mobility(seed_random, num_vehicles, city, city_bbox, max_simulation_time_ms,#
-                               vehicle_cpu_capacity, vehicle_queue_capacity, vehicle_cpu_power,
-                               ue_tx_power, energy_available, price_kwh)
+    vehicles, mobility_df = create_vehicles_and_mobility(
+        seed_random, num_vehicles, city, city_bbox, max_simulation_time_ms,
+        vehicle_cpu_capacity, vehicle_queue_capacity, vehicle_cpu_power,
+        ue_tx_power, energy_available, price_kwh)
 
+    # ---------------------------------------------------------------------
+    # Cloud nodes
+    # ---------------------------------------------------------------------
     print("=== Creazione cloud ===")
     clouds = create_cloud_nodes(num_clouds, cloud_cpu_capacity, cloud_queue_capacity, controller_cpu_power,
-                                gnb_tx_power_inet, energy_available, price_kwh, ul_datarate=inet_dr, dl_datarate=inet_dr)
+                                gnb_tx_power_inet, energy_available, price_kwh,
+                                ul_datarate=inet_dr, dl_datarate=inet_dr)
+
 
     controller = Controller(gnb_position_x=900, gnb_position_y=900)
     tasks =  generate_exponential_tasks(task_rate, task_input_size, task_output_size, task_workload, users_number, max_simulation_time_ms, task_type_tuple, possible_task_types, seed_random)
+
 
 
     last_v_beacon = {v.vehicle_id: -vehicle_beacon_interval_ms for v in vehicles}
     last_v_real = last_v_beacon.copy()
     last_c_beacon = {c.cloud_id: -cloud_beacon_interval_ms for c in clouds}
 
-    # for beacon tracing
+    # Tracing dataframes
     beacon_df = pd.DataFrame(columns=[
         'timestamp', 'node_id', 'node_cpu_capacity', 'queue_capacity', 'cpu_power', 'tx_power',
-        'energy_available', 'dollars_per_kwh','ul_datarate', 'dl_datarate', 'pos_x', 'pos_y', 'speed'
+        'energy_available', 'dollars_per_kwh', 'ul_datarate', 'dl_datarate', 'pos_x', 'pos_y', 'speed'
     ])
-
     beacon_df_real = beacon_df.copy()
-
-    #for task tracing
     tasks_df = pd.DataFrame(columns=["id", "arrival_time", "I", "O", "W", "D"])
 
-    #to keep track of the nodes busy for offloading
+    # Busy nodes (offloading)
     busy_nodes_id = []
-
 
     current_time_ms = start_time
 
-    #initialize counts
+    # Metrics
     task_allocation_count = 0
     total_tasks_processed = 0
     total_utility = 0
     count_all_tasks = 0
 
+    # ---------------------------------------------------------------------
+    # MAIN LOOP
+    # ---------------------------------------------------------------------
     while current_time_ms <= max_simulation_time_ms:
         current_time_sec = convert.ms_to_seconds(current_time_ms)
+
         #assign current position to vehicles
+
         for vs in vehicles:
             vs.set_istantaneous_mobility_pattern(current_time_sec, mobility_df)
 
-        vehicles_with_mobility = vehicles
+        # Aggiorna datarate veicoli
+        active_vehicles = [v for v in vehicles if not is_node_busy(v.vehicle_id, busy_nodes_id)]
+
 
         #assign datarates to vehicles
         active_vehicles = [v for v in vehicles_with_mobility if not is_node_busy(v.vehicle_id, busy_nodes_id)]
 
         # Calcolo datarate iniziale con x% attivi solo nel primo step
-        if current_time_ms == start_time:
-            vehicles_with_datarates = set_all_vehicles_data_rate_5g_standard(
-                active_vehicles,
-                seed_random=seed_random,
-                potenza_dl_dbm=gnb_tx_power_5g,
+
+
                 active_ratio=2*((users_number*task_rate) / (1000/window_task_collection))/num_vehicles   # <-- x% attivi all'inizio
             )
             print(((users_number*task_rate) / (1000/window_task_collection))/num_vehicles )
+
         else:
             vehicles_with_datarates = set_all_vehicles_data_rate_5g_standard(
                 active_vehicles,
@@ -210,12 +244,15 @@ def main(results_folder, task_input_size=TASK_INPUT_SIZE,
 
         # Beacon asincroni: ogni veicolo ha offset sfasato nel tempo
 
+
         for v in vehicles_with_datarates:
 
             if current_time_ms - last_v_beacon[v.vehicle_id] >= vehicle_beacon_interval_ms and not is_node_busy(
                     v.vehicle_id, busy_nodes_id):
+
                 beacon = v.create_beacon(current_time_sec, randomize=False, seed_random=seed_random)
                 beacon_real = v.create_beacon(current_time_sec, randomize=True,seed_random=seed_random)
+
                 dwell, dist = compute.calculate_dwell_time_and_distance(v.position_x, v.position_y, v.speed)
 
                 controller.receive_vehicle_beacon(beacon, current_time_ms, dwell)
@@ -228,55 +265,58 @@ def main(results_folder, task_input_size=TASK_INPUT_SIZE,
 
         for c in clouds:
             if current_time_ms - last_c_beacon[c.cloud_id] >= cloud_beacon_interval_ms:
+
                 cloud_beacon = c.create_beacon(current_time_sec, randomize=False, seed_random=seed_random)
                 cloud_beacon_real = c.create_beacon(current_time_sec, randomize=True, seed_random=seed_random)
+
                 beacon_df = pd.concat([beacon_df, pd.DataFrame([cloud_beacon])], ignore_index=True)
                 beacon_df_real = pd.concat([beacon_df_real, pd.DataFrame([cloud_beacon_real])], ignore_index=True)
 
                 controller.receive_cloud_beacon(cloud_beacon, current_time_ms)
-                print(f"[LOG] Beacon inviato - ID: {c.cloud_id}, Time: {current_time_sec:.2f}s")
-
                 controller.receive_cloud_real_beacon(cloud_beacon_real, current_time_ms)
-                print(f"[LOG] Cloud beacon inviato - ID: {c.cloud_id}, Time: {current_time_sec:.2f}s")
 
                 last_c_beacon[c.cloud_id] = current_time_ms
 
         controller.clean_expired_beacons(current_time_ms)
 
-        #END OF BEACON MANAGING
-
-        #loose tasks if out after calculation and register in a file
+        # -----------------------------------------------------------------
+        # Task window processing
+        # -----------------------------------------------------------------
         if current_time_ms % window_task_collection == 0:
             filtered = filter_tasks_by_arrival_time(tasks, current_time_ms, current_time_ms + window_task_collection)
             count_all_tasks += len(filtered)
 
             if filtered:
                 new_tasks_df = pd.DataFrame(filtered)
-
                 if not new_tasks_df.empty:
                     tasks_df = pd.concat([tasks_df, new_tasks_df], ignore_index=True)
 
                 beacons = controller.beacons
 
                 if beacons:
+
                     print('BBBBBBBBBB', len(beacons))
                     assigned_nodes, tasks_per_node, task_assignments, total_utility_allocation, algo_overhead = optimize_task_allocation(beacons, filtered, task_rate)
 
-
+                    # -----------------------------------------------------------------
+                    # Update datarates considering allocated traffic
+                    # -----------------------------------------------------------------
                     traffic_map = defaultdict(lambda: {'I': 0, 'O': 0})
                     for t in task_assignments:
                         nid = int(t['node'][1])
                         traffic_map[nid]['I'] += t['task']['I']
                         traffic_map[nid]['O'] += t['task']['O']
 
-                    # Aggiorna datarate in beacon con traffico reale
-                    for b in controller.beacons:
-                        nid = int(b[1])
-                        if nid in traffic_map:
-                            b[2]['ul_datarate'] = traffic_map[nid]['I'] / 0.1  # 100ms
-                            b[2]['dl_datarate'] = traffic_map[nid]['O'] / 0.1
+                    for beacon_list in (controller.beacons, controller.real_beacons):
+                        for b in beacon_list:
+                            nid = int(b[1])
+                            if nid in traffic_map:
+                                b[2]['ul_datarate'] = traffic_map[nid]['I'] / 0.1
+                                b[2]['dl_datarate'] = traffic_map[nid]['O'] / 0.1
 
-                    # Traccia log per ogni nodo
+                    # -----------------------------------------------------------------
+                    # Logging datarates
+                    # -----------------------------------------------------------------
                     log_path = os.path.join(results_folder, "datarate_debug.jsonl")
                     with open(log_path, "a") as log_file:
                         for nid, traffic in traffic_map.items():
@@ -289,38 +329,40 @@ def main(results_folder, task_input_size=TASK_INPUT_SIZE,
                                 "dl_datarate": traffic['O'] / 0.1
                             }) + "\n")
 
-                    busy_nodes_id += [{'busy_id': int(t['node'][1]), 'time': math.ceil(convert.seconds_to_ms(t['details']['offloading_time']))}
+                    # -----------------------------------------------------------------
+                    # Busy nodes bookkeeping
+                    # -----------------------------------------------------------------
+                    busy_nodes_id += [{'busy_id': int(t['node'][1]),
+                                       'time': math.ceil(convert.seconds_to_ms(t['details']['offloading_time']))}
                                       for t in task_assignments if int(t['node'][1]) >= 0]
 
-                    # nome ricco di info
                     assignments_serializable = [simplify_assignment(t) for t in task_assignments]
 
                     alloc_path = os.path.join(results_folder, "allocations.txt")
                     with open(alloc_path, 'a') as f:
                         f.write(json.dumps({
                             "timestamp": current_time_sec,
-                            "assignments": task_assignments  # <-- tutto l'oggetto completo
+                            "assignments": assignments_serializable
                         }, default=str) + "\n")
 
                     task_allocation_count += 1
                     total_tasks_processed += sum(1 for t in task_assignments if t is not None)
                     total_utility += total_utility_allocation
 
+                    # -----------------------------------------------------------------
+                    # Real-world evaluation
+                    # -----------------------------------------------------------------
                     real_beacons = controller.real_beacons
-                    tot_utility_real, infos = real_value_function(real_beacons, task_assignments, algo_overhead,
-                                                                  task_rate)
+                    tot_utility_real, infos = real_value_function(real_beacons, task_assignments,
+                                                                  algo_overhead, task_rate)
 
-                    # Traccia task persi (deadline non rispettata)
-                    lost_tasks = [
-                        {
-                            "timestamp": current_time_sec,
-                            "task_id": t['task']['id'],
-                            "node_id": int(t['node'][1]),
-                            "deadline": t['task']['D']
-                        }
-                        for t in task_assignments
-                        if not any(info['task']['task']['id'] == t['task']['id'] for info in infos)
-                    ]
+                    # Lost tasks tracking
+                    lost_tasks = [{
+                        "timestamp": current_time_sec,
+                        "task_id": t['task']['id'],
+                        "node_id": int(t['node'][1]),
+                        "deadline": t['task']['D']
+                    } for t in task_assignments if not any(info['task']['task']['id'] == t['task']['id'] for info in infos)]
 
                     if lost_tasks:
                         lost_path = os.path.join(results_folder, "lost_tasks.jsonl")
@@ -333,23 +375,28 @@ def main(results_folder, task_input_size=TASK_INPUT_SIZE,
                         f.write(json.dumps({
                             "timestamp": current_time_sec,
                             "real_total_utility": tot_utility_real,
-                            "details": infos  # <-- dettagli completi
+                            "details": [simplify_real_info(info) for info in infos]
                         }, default=str) + "\n")
 
+                # Decrement busy timers
                 busy_nodes_id = [n for n in busy_nodes_id if n['time'] > 1]
-                for n in busy_nodes_id: n['time'] -= 1
+                for n in busy_nodes_id:
+                    n['time'] -= 1
 
         current_time_ms += time_step_ms
 
-    # Salvataggi finali già presenti
+    # ---------------------------------------------------------------------
+    # End of simulation
+    # ---------------------------------------------------------------------
     print("\n=== Simulazione completata ===")
-    print(f"Tempo totale: {max_simulation_time_ms} ms | Task generati: {count_all_tasks} | Processati: {total_tasks_processed} | Utilità: {total_utility}")
+    print(f"Tempo totale: {max_simulation_time_ms} ms | Task generati: {count_all_tasks} | "
+          f"Processati: {total_tasks_processed} | Utilità: {total_utility}")
 
     beacon_df.to_csv(os.path.join(results_folder, "beacons.csv"), mode='w', index=False)
     beacon_df_real.to_csv(os.path.join(results_folder, "beacons_real.csv"), mode='w', index=False)
 
-    tasks_path = os.path.join(results_folder, "tasks.csv")
-    tasks_df.to_csv(tasks_path, index=False)
+    tasks_df.to_csv(os.path.join(results_folder, "tasks.csv"), index=False)
+
 
 if __name__ == "__main__":
     main(results_folder='tests')

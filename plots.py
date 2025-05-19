@@ -18,8 +18,8 @@ def setup_figure_dirs(metric):
     os.makedirs(date_dir)
 
     metric_dir = os.path.join(date_dir, metric)
-    os.makedirs(metric_dir)
 
+    os.makedirs(metric_dir)
     return metric_dir
 
 def parse_alloc_times(file_path, metric="offloading_time"):
@@ -162,11 +162,11 @@ def plot_results(df, parameter, metric, output_dir):
 
     plt.figure(figsize=(10, 6))
     if df["alloc_mean"].notna().any():
-        plt.plot(df["value"], df["alloc_mean"], label="Allocations", marker="o", color="blue")
-        plt.fill_between(df["value"], df["alloc_ci_low"], df["alloc_ci_high"], alpha=0.2, color="blue")
+        plt.plot(df["value"], df["alloc_mean"], label="Allocations", marker="o")
+        plt.fill_between(df["value"], df["alloc_ci_low"], df["alloc_ci_high"], alpha=0.2)
     if df["real_mean"].notna().any():
-        plt.plot(df["value"], df["real_mean"], label="Realizations", marker="o", color="green")
-        plt.fill_between(df["value"], df["real_ci_low"], df["real_ci_high"], alpha=0.2, color="green")
+        plt.plot(df["value"], df["real_mean"], label="Realizations", marker="o")
+        plt.fill_between(df["value"], df["real_ci_low"], df["real_ci_high"], alpha=0.2)
     plt.xlabel(parameter)
     plt.ylabel(ylabel)
     plt.title(f"{title_metric} vs {parameter}")
@@ -181,11 +181,11 @@ def plot_results(df, parameter, metric, output_dir):
     plt.figure(figsize=(10, 6))
     plt.yscale("log")
     if df["alloc_mean"].notna().any():
-        plt.plot(df["value"], df["alloc_mean"], label="Allocations", marker="o", color="blue")
-        plt.fill_between(df["value"], df["alloc_ci_low"], df["alloc_ci_high"], alpha=0.2, color="blue")
+        plt.plot(df["value"], df["alloc_mean"], label="Allocations", marker="o")
+        plt.fill_between(df["value"], df["alloc_ci_low"], df["alloc_ci_high"], alpha=0.2)
     if df["real_mean"].notna().any():
-        plt.plot(df["value"], df["real_mean"], label="Realizations", marker="o", color="green")
-        plt.fill_between(df["value"], df["real_ci_low"], df["real_ci_high"], alpha=0.2, color="green")
+        plt.plot(df["value"], df["real_mean"], label="Realizations", marker="o")
+        plt.fill_between(df["value"], df["real_ci_low"], df["real_ci_high"], alpha=0.2)
     plt.xlabel(parameter)
     plt.ylabel("Log(" + ylabel + ")")
     plt.title(f"Log {title_metric} vs {parameter}")
@@ -217,15 +217,13 @@ def plot_bar_comparison(df, parameter, metric, output_dir):
         if log:
             ax.set_yscale("log")
         if df["alloc_mean"].notna().any():
-            ax.bar(indices - bar_width/2, df["alloc_mean"], bar_width, label="Allocations", yerr=[
-                df["alloc_mean"] - df["alloc_ci_low"],
-                df["alloc_ci_high"] - df["alloc_mean"]
-            ], capsize=5, color='blue')
+            ax.bar(indices - bar_width/2, df["alloc_mean"], bar_width, label="Allocations",
+                   yerr=[df["alloc_mean"] - df["alloc_ci_low"], df["alloc_ci_high"] - df["alloc_mean"]],
+                   capsize=5)
         if df["real_mean"].notna().any():
-            ax.bar(indices + bar_width/2, df["real_mean"], bar_width, label="Realizations", yerr=[
-                df["real_mean"] - df["real_ci_low"],
-                df["real_ci_high"] - df["real_mean"]
-            ], capsize=5, color='green')
+            ax.bar(indices + bar_width/2, df["real_mean"], bar_width, label="Realizations",
+                   yerr=[df["real_mean"] - df["real_ci_low"], df["real_ci_high"] - df["real_mean"]],
+                   capsize=5)
         ax.set_xlabel(parameter)
         ax.set_ylabel(ylabel + (" (log scale)" if log else ""))
         ax.set_title(f"{'Log ' if log else ''}{title_metric} Comparison vs {parameter}")
@@ -286,11 +284,14 @@ def analyze_realization_rates(base_dir):
                 })
     return pd.DataFrame(results)
 
+
 def plot_realization_failure(df, output_dir):
+
     os.makedirs(output_dir, exist_ok=True)
     for param, group in df.groupby("parameter"):
         group = group.sort_values("value")
         x = np.arange(len(group))
+
         width = 0.5
 
         fig, ax = plt.subplots(figsize=(10, 6))
@@ -310,6 +311,7 @@ def plot_realization_failure(df, output_dir):
         fig.tight_layout()
         plt.savefig(os.path.join(output_dir, f"failures_vs_{param}.png"))
         plt.close()
+
 
 
 if __name__ == "__main__":
@@ -376,3 +378,5 @@ if __name__ == "__main__":
                 print(f"[INFO] CSV salvato: {csv_file}")
                 plot_results(df, parameter, metric=metric, output_dir=output_dir)
                 plot_bar_comparison(df, parameter, metric=metric, output_dir=output_dir)
+
+

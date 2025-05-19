@@ -27,8 +27,10 @@ TASK_RATE = 10  # task requests per use per second
 VEHICLE_QUEUE_CAPACITY = 1
 CLOUD_QUEUE_CAPACITY = 10.0e+12
 
+
 NUM_VEHICLES = 100
 MAX_SIMULATION_TIME_MS =  240
+
 TIME_STEP_MS = 1  # millisecond time step
 USERS_NUMBER = 100
 NUM_CLOUDS = 1
