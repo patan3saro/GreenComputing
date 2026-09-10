@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Code Ocean entry point: reproduce every figure and table into /results.
+set -euo pipefail
+cd "$(dirname "$0")"
+[ -d /data/results ] && ln -sfn /data/results results     # data asset, if attached
+./reproduce.sh                                             # downloads the release otherwise
+mkdir -p /results && cp -r figures tables /results/
