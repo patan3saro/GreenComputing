@@ -1,0 +1,6 @@
+numpy>=1.26
+pandas>=2.1
+matplotlib>=3.8
+pulp>=2.8
+scipy>=1.11
+highspy>=1.7   # optional: in-process HiGHS solver, CBC is used otherwise

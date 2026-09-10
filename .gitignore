@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+*.log
+*.bak
+.venv/
+venv/
+.idea/
+.pytest_cache/
+results/
+figures/
+tables/
+sumo_rome_bb*/
+_osm_cache/
