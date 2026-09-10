@@ -1,69 +1,114 @@
-# GreenComputing
+# EchoNext Mini-Model Dataset
 
-Simulator and reproduction scripts for *Reusing Spare Vehicle Computing
-Capacity: Is It Viable, Profitable and Sustainable?* (submitted to IEEE
-Transactions on Mobile Computing).
+This repository contains the dataset used to train the **EchoNext Mini-Model**, comprising a curated collection of 100,000 electrocardiograms (ECGs) sourced from Columbia and Allen hospitals.
 
-## Reproduce the paper
+## Dataset Overview
 
-```
-pip install -r requirements.txt
-./reproduce.sh
-```
+The dataset is divided into training, validation, and test splits. Some ECGs are labeled as `no_split` and are not included in model training.  
+- The **training set** may include multiple ECGs per patient.  
+- The **validation and test sets** include only the **latest ECG** per patient.  
 
-`reproduce.sh` downloads the raw simulation output on first run (about
-SIZE_TO_FILL), then writes the three figures to `figures/` and
-every table to `tables/`. The post-processing itself runs in under a minute.
+Each ECG is accompanied by:
+- Tabular features
+- Waveform data
+- Metadata including echocardiographic measurements and diagnostic labels
 
-| Paper item | Script | Input |
-|---|---|---|
-| Fig. 2a, 2b, 3 | `paper_main_figures.py` | `results/comparison_FINAL/ablation_grid.csv`, `results/comparison_FINAL/optimal_dro/nv*/seed1/allocations.jsonl`, `results/grid_cf*_mf*/*/nv90/*/summary.json` |
-| Table II (failure rates), Table V | `extract_tables3.py` | all `summary.json` |
-| Table II (utility), Table III | `table2_split.py` | `ablation_grid.csv`, seed-1 `allocations.jsonl` |
-| Table IV | `cost_per_task_table.py` | constants only |
-| Table VI | `co2_from_grid.py` (`--fpeak` for peak-load attribution) | `ablation_grid.csv` |
-| Table S1 | `loss_attribution.py` | grid `summary.json` |
-| Table S2 | `sensitivity_table.py` | `results/sens_*/*/nv*/seed*/summary.json` |
+## Included Files
 
-`paper_main_figures.py` also writes `figures/paper_figure_values.csv` with
-every plotted value.
+### 1. ECG Metadata (`EchoNext_metadata_100k.csv`)
 
-## Data
+A CSV file containing metadata and labels for each ECG record.  
+**Note:** The order of ECGs in the metadata file matches the row order in the corresponding NumPy array files.
+> For binary classification labels, all ECGs prior to an echo negative for SHD are labelled negative.  
+> More granular labels are provided for all ECGs taken within a year prior to an echocardiogram.
 
-The raw output of the campaign (one `summary.json` per run, plus
-`ablation_grid.csv` and the per-assignment `allocations.jsonl` and
-`realizations.jsonl` of the first seed of each density) is attached to the
-release `v1.0-data` of this repository. `reproduce.sh` fetches it
-automatically; to do it by hand, download the archive from the release page
-and unpack it as `results/` in this directory.
+#### ECG Demographic Data
+- `patient_key`: De-identified patient identifier  
+- `acquisition_year`: Year the ECG was acquired
+- `location_setting`: Clinical context of ECG: either `inpatient`, `emergency`, `outpatient`, or `procedural`
+- `race_ethnicity`: Either `hispanic`, `white`, `black`, `unknown`, `other`, `asian`
+- `most_recent_ecg`: Binary flag indicating whether the ECG is the most recent for the patient
 
-## Re-run the simulation
+#### Raw ECG-Derived Tabular Features
+- `sex`: Patient sex (0 = female, 1 = male)  
+- `ventricular_rate`: Ventricular rate (beats per minute)  
+- `atrial_rate`: Atrial rate (beats per minute)  
+- `pr_interval`: PR interval (ms)  
+- `qrs_duration`: QRS duration (ms)  
+- `qt_corrected`: Corrected QT interval (ms)  
+- `age_at_ecg`: Age at time of ECG acquisition (capped at 90 years)
 
-The simulator is in Python; the mobility traces are generated with
-[SUMO](https://eclipse.dev/sumo/) from OpenStreetMap data of downtown Rome
-(`SUMO_HOME` must be set). Prefetch the traces once, then run the campaign:
+#### Echo-Derived Features
+- `aortic_stenosis_value`: Severity of aortic stenosis (none/trace, mild, moderate, severe)  
+- `aortic_regurgitation_value`: Severity of aortic regurgitation  
+- `mitral_regurgitation_value`: Severity of mitral regurgitation  
+- `tricuspid_regurgitation_value`: Severity of tricuspid regurgitation  
+- `pulmonary_regurgitation_value`: Severity of pulmonary regurgitation  
+- `rv_systolic_function_value`: RV systolic function (normal to severely reduced)  
+- `pericardial_effusion_value`: Pericardial effusion size (none to large)  
+- `ivs_measurement`: Interventricular septum thickness (cm)  
+- `lvpw_measurement`: Left ventricular posterior wall thickness (cm)  
+- `pasp_value`: Pulmonary artery systolic pressure (mmHg)  
+- `tr_max_velocity_value`: Max tricuspid regurgitation velocity (m/s)  
+- `lvef_value`: Left ventricular ejection fraction (%)
 
-```
-python3 prefetch_maps.py
-./run_campaign.sh
-```
+#### Echo-Derived Binary Labels
+These are binarized versions of the echo features based on clinically relevant thresholds:
+- `lvef_lte_45_flag`: LVEF ≤ 45%  
+- `lvwt_gte_13_flag`: LV wall thickness ≥ 1.3 cm  
+- `aortic_stenosis_moderate_or_greater_flag`: Moderate or severe aortic stenosis  
+- `aortic_regurgitation_moderate_or_greater_flag`: Moderate or severe aortic regurgitation  
+- `mitral_regurgitation_moderate_or_greater_flag`: Moderate or severe mitral regurgitation  
+- `tricuspid_regurgitation_moderate_or_greater_flag`: Moderate or severe tricuspid regurgitation  
+- `pulmonary_regurgitation_moderate_or_greater_flag`: Moderate or severe pulmonary regurgitation  
+- `rv_systolic_dysfunction_moderate_or_greater_flag`: Moderate or severe RV dysfunction  
+- `pericardial_effusion_moderate_large_flag`: Moderate or large pericardial effusion  
+- `pasp_gte_45_flag`: PASP ≥ 45 mmHg  
+- `tr_max_gte_32_flag`: TR velocity ≥ 3.2 m/s  
+- `shd_moderate_or_greater_flag`: Composite label indicating presence of moderate or greater structural heart disease
 
-`run_campaign.sh` runs the density sweep (`comparison_FINAL`), the
-capacity × misreporting grid (`grid_cf*_mf*`) and the sensitivity
-families (`sens_*`) with 10 seeds each; it takes several days on a
-16-core machine. Single configurations can be run with
-`comparison_strategies.py` (see its docstring for the parameters).
+#### Split Information
+- `split`: Indicates data partition (`train`, `val`, `test`, or `no_split`)
 
-Entry points and modules:
+---
 
-- `comparison_strategies.py` — runs one configuration for every strategy
-- `main.py` — one simulation (Stage 1 allocation, Stage 2 sharing)
-- `optimizer.py`, `admission.py` — allocation ILP and robust admission rule
-- `payoff_sharing.py`, `value_function.py`, `core_check.py`, `realized_value.py` — coalitional game
-- `task_timing.py`, `task_energy.py`, `network_manager.py` — delay, energy and 5G channel models
-- `vehicle.py`, `cloud.py`, `controller.py`, `mobility_manager.py` — nodes and mobility
-- `config.py` — every parameter of Table I
+### 2. Tabular Features (`EchoNext_<SPLIT>_tabular_features.npy`)
 
-## License
+Each file contains preprocessed tabular features for ECGs in the corresponding split.  
+Shape: **N × 7**
 
-MIT, see `LICENSE`.
+**Note:** The order of ECGs in the NumPy array files matches the row order in the corresponding metadata file.
+
+**Columns:**
+- `sex`  
+- `ventricular_rate`  
+- `atrial_rate`  
+- `pr_interval`  
+- `qrs_duration`  
+- `qt_corrected`  
+- `age_at_ecg`
+
+**Preprocessing Notes:**
+- Continuous features were standardized  
+- Missing values were imputed using the median (except `atrial_rate` and `pr_interval`, which were set to 0)  
+- `sex` was binarized
+
+---
+
+### 3. Waveform Features (`EchoNext_<SPLIT>_waveforms.npy`)
+
+Each file contains preprocessed waveform data for ECGs in the corresponding split.  
+Shape: **N × 1 × 2500 × 12**  
+Each ECG is a 10-second, 12-lead segment sampled at 250 Hz.
+
+**Note:** The order of ECGs in the NumPy array files matches the row order in the corresponding metadata file.
+
+**Waveform Preprocessing:**
+- Median-filtered per lead  
+- Clipped at the 0.1st and 99.9th percentiles  
+- Normalized using dataset-wide mean and standard deviation
+
+
+## Usage
+
+Instructions for running inference using the EchoNext Mini-Model are available in the [GitHub repository](https://github.com/) (see Section 7).
